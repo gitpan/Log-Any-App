@@ -1,0 +1,27 @@
+---
+abstract: 'A simple wrapper for Log::Any + Log::Log4perl for use in applications'
+author:
+  - 'Steven Haryanto <stevenharyanto@gmail.com>'
+build_requires:
+  Module::Build: 0.35
+configure_requires:
+  Module::Build: 0.35
+generated_by: 'Dist::Zilla version 1.093400'
+license: perl
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: Log-Any-App
+requires:
+  File::HomeDir: 0
+  File::Path: 0
+  File::Spec: 0
+  Log::Any: 0
+  Log::Any::Adapter: 0
+  Log::Any::Adapter::Log4perl: 0
+  Log::Dispatch::Dir: 0
+  Log::Dispatch::FileRotate: 0
+  Log::Dispatch::Syslog: 0
+  Log::Log4perl: 0
+  Test::More: 0
+version: 0.01

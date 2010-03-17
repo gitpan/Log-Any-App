@@ -1,0 +1,11 @@
+Changes
+LICENSE
+MANIFEST
+META.yml
+README
+dist.ini
+lib/Log/Any/App.pm
+t/load.t
+t/pod.t
+t/release-pod-coverage.t
+t/release-pod-syntax.t
