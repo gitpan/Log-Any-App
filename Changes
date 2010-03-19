@@ -1,4 +1,13 @@
 Revision history for Log-Any-App
 
+0.02     2010-03-19
+         - Add -dump option.
+         - default mode append for file.
+         - Add debug statements (activated via LOGANYAPP_DEBUG=1) to
+           help debug logging configuration.
+         - Bug fix: respect screen's color => 0 setting.
+         - Don't do screen colors unless in interactive terminal.
+         - Bug fix: export '$log' in BEGIN, not CHECK phase.
+
 0.01     2010-03-17
          First release.

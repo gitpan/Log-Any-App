@@ -3,7 +3,7 @@ NAME
     applications
 
 VERSION
-    version 0.01
+    version 0.02
 
 SYNOPSIS
         # in your script/application
@@ -124,8 +124,8 @@ USING
 FUNCTIONS
   init(\@args)
     This is the actual function that implements the setup and configuration
-    of everything. You normally need not call this function explicitly, it
-    will be called once in a CHECK block. In fact, when you do:
+    of logging. You normally need not call this function explicitly, it will
+    be called once in a CHECK block. In fact, when you do:
 
      use Log::Any::App 'a', 'b', 'c';
 
@@ -134,10 +134,6 @@ FUNCTIONS
      init(['a', 'b', 'c']);
 
     Arguments to init can be one or more of:
-
-    '$log'
-        This will export the default logger to the caller's package. If you
-        want other category than the default:
 
     -init => BOOL
         Default is true. You can set this to false, and you can initialize
@@ -290,6 +286,10 @@ FUNCTIONS
         SYSLOG_TRACE, SYSLOG_DEBUG, SYSLOG_VERBOSE, SYSLOG_QUIET, and the
         similars).
 
+    -dump => BOOL
+        If set to true then Log::Any::App will dump the generated Log4perl
+        config. Useful for debugging the logging.
+
 FAQ
   What's the benefit of using Log::Any::App?
     All of Log::Any and all of Log::Log4perl, as what Log::Any::App does is
@@ -332,6 +332,11 @@ FAQ
     The usual way as with Log::Any:
 
      my $other_log = Log::Any->get_logger(category => $category);
+
+  How do I see the Log4perl configuration that gets used?
+    Set environment LOGANYAPP_DEBUG to true, and Log::Any::App will dump the
+    Log4perl configuration as well as additional messages to help you trace
+    how it came up to be.
 
 BUGS/TODOS
     Need to provide appropriate defaults for Windows/other OS.

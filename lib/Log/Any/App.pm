@@ -1,15 +1,16 @@
 package Log::Any::App;
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 # ABSTRACT: A simple wrapper for Log::Any + Log::Log4perl for use in applications
 
 
 use strict;
 use warnings;
 
+use Data::Dumper;
 use File::HomeDir;
 use File::Path qw(make_path);
 use File::Spec;
-use Log::Any qw($log);
+use Log::Any;
 use Log::Any::Adapter;
 use Log::Log4perl;
 
@@ -23,7 +24,7 @@ sub init {
     my ($args, $caller) = @_;
     $caller ||= caller();
 
-    my $spec = _parse_args($args, $caller);
+    my $spec = _parse_opts($args, $caller);
     return unless $spec->{init};
     _init_log4perl($spec);
 }
@@ -75,6 +76,7 @@ sub _init_log4perl {
         $config_appenders .= join(
             "",
             "log4perl.appender.$a = Log::Dispatch::FileRotate\n",
+            "log4perl.appender.$a.mode = append\n",
             "log4perl.appender.$a.filename = $_->{path}\n",
             ($_->{max_size} ? "log4perl.appender.$a.size = " . ($_->{max_size}/1024/1024) . "\n" : ""),
             ($_->{histories} ? "log4perl.appender.$a.max = " . ($_->{histories}+1) . "\n" : ""),
@@ -92,7 +94,7 @@ sub _init_log4perl {
         $cats{$cat}{level} = _max_level($cats{$cat}{level}, $_->{level});
         $config_appenders .= join(
             "",
-            "log4perl.appender.$a = Log::Log4perl::Appender::ScreenColoredLevels\n",
+            "log4perl.appender.$a = Log::Log4perl::Appender::" . ($_->{color} ? "ScreenColoredLevels" : "Screen") . "\n",
             ("log4perl.appender.$a.stderr = " . ($_->{stderr} ? 1 : 0) . "\n"),
             "log4perl.appender.$a.layout = PatternLayout\n",
             "log4perl.appender.$a.layout.ConversionPattern = $_->{pattern}\n",
@@ -124,7 +126,11 @@ sub _init_log4perl {
     }
     my $config = $config_cats . "\n" . $config_appenders;
 
-    #print $config; exit;
+    if ($spec->{dump}) {
+        print "Log::Any::App configuration:\n", Data::Dumper->new([$spec])->Terse(1)->Dump;
+        print "Log4perl configuration:\n", $config;
+    }
+
     Log::Log4perl->init(\$config);
     Log::Any::Adapter->set('Log4perl');
 }
@@ -141,53 +147,77 @@ sub _dirname {
     $dir;
 }
 
+# we separate args and opts, because we need to export logger early
+# (BEGIN), but configure logger in CHECK (to be able to detect
+# existence of other modules).
+
 sub _parse_args {
     my ($args, $caller) = @_;
+    my $i = 0;
+    while ($i < @$args) {
+        my $arg = $args->[$i];
+        do { $i+=2; next } if $arg =~ /^-(\w+)$/;
+        if ($arg eq '$log') {
+            _export_logger($caller);
+        } else {
+            die "Unknown arg '$arg', valid arg is '\$log' or -OPTS";
+        }
+        $i++;
+    }
+}
+
+sub _parse_opts {
+    my ($args, $caller) = @_;
+
+    my $level = _find_level("", "");
+    if (!$level) {
+        $level = "warn";
+        _debug("Setting general level to default ($level)");
+    }
 
     my $spec = {
         name => _basename($0),
-        level => _find_level("") || "info",
+        level => $level,
         init => 1,
+        dump => ($ENV{LOGANYAPP_DEBUG} ? 1:0),
     };
 
     my $i = 0;
     while ($i < @$args) {
         my $arg = $args->[$i];
-        if ($arg eq '$log') {
-            _export_logger($caller);
-        } elsif ($arg =~ /^-(\w+)$/) {
-            my $opt = $1;
-            die "Missing argument for option $arg" unless $i++ <= @$args-1;
-            $arg = $args->[$i];
-            if ($opt eq 'init') {
-                $spec->{init} = $arg;
-            } elsif ($opt eq 'name') {
-                $spec->{name} = $arg;
-            } elsif ($opt eq 'level') {
-                $spec->{level} = _check_level($arg, "-level");
-            } elsif ($opt eq 'file') {
-                $spec->{files} = [];
-                _parse_opt_file($spec, $arg);
-            } elsif ($opt eq 'dir') {
-                $spec->{dirs} = [];
-                _parse_opt_dir($spec, $arg);
-            } elsif ($opt eq 'screen') {
-                $spec->{screens} = [];
-                _parse_opt_screen($spec, $arg);
-            } elsif ($opt eq 'syslog') {
-                $spec->{syslogs} = [];
-                _parse_opt_syslog($spec, $arg);
-            } else {
-                die "Unknown option $opt";
-            }
+        do { $i++; next } unless $arg =~ /^-(\w+)$/;
+        my $opt = $1;
+        die "Missing argument for option $opt" unless $i++ < @$args-1;
+        $arg = $args->[$i];
+        if ($opt eq 'init') {
+            $spec->{init} = $arg;
+        } elsif ($opt eq 'name') {
+            $spec->{name} = $arg;
+        } elsif ($opt eq 'level') {
+            $spec->{level} = _check_level($arg, "-level");
+        } elsif ($opt eq 'file') {
+            $spec->{files} = [];
+            _parse_opt_file($spec, $arg);
+        } elsif ($opt eq 'dir') {
+            $spec->{dirs} = [];
+            _parse_opt_dir($spec, $arg);
+        } elsif ($opt eq 'screen') {
+            $spec->{screens} = [];
+            _parse_opt_screen($spec, $arg);
+        } elsif ($opt eq 'syslog') {
+            $spec->{syslogs} = [];
+            _parse_opt_syslog($spec, $arg);
+        } elsif ($opt eq 'dump') {
+            $spec->{dump} = 1;
         } else {
-            die "Unknown argument $arg";
+            die "Unknown option $opt, known opts are: ".
+                "name, level, file, dir, screen, syslog, dump, init";
         }
         $i++;
     }
 
     if (!$spec->{files}) {
-        #$spec->{files} = $0 eq '-e' ? [] : [_default_file($spec)];
+        $spec->{files} = $0 eq '-e' ? [] : [_default_file($spec)];
     }
     if (!$spec->{dirs}) {
         $spec->{dirs} = [];
@@ -224,8 +254,13 @@ sub _is_daemon {
 
 sub _default_file {
     my ($spec) = @_;
+    my $level = _find_level("file");
+    if (!$level) {
+        $level = $spec->{level};
+        _debug("Setting level of file to general level ($level)");
+    }
     return {
-        level => _find_level("file") || $spec->{level},
+        level => $level,
         path => $> ? File::Spec->catfile(File::HomeDir->my_home, "$spec->{name}.log") :
             "/var/log/$spec->{name}.log", # XXX and on Windows?
         max_size => undef,
@@ -260,8 +295,13 @@ sub _parse_opt_file {
 
 sub _default_dir {
     my ($spec) = @_;
+    my $level = _find_level("dir");
+    if (!$level) {
+        $level = $spec->{level};
+        _debug("Setting level of dir to general level ($level)");
+    }
     return {
-        level => _find_level("dir") || $spec->{level},
+        level => $level,
         path => $> ? File::Spec->catfile(File::HomeDir->my_home, "log", $spec->{name}) :
             "/var/log/$spec->{name}", # XXX and on Windows?
         max_size => undef,
@@ -298,10 +338,15 @@ sub _parse_opt_dir {
 
 sub _default_screen {
     my ($spec) = @_;
+    my $level = _find_level("screen");
+    if (!$level) {
+        $level = $spec->{level};
+        _debug("Setting level of screen to general level ($level)");
+    }
     return {
-        color => 1,
+        color => (-t STDOUT),
         stderr => 1,
-        level => _find_level("screen") || $spec->{level},
+        level => $level,
         category => '',
         pattern => '[%r] %m%n',
     };
@@ -326,8 +371,13 @@ sub _parse_opt_screen {
 
 sub _default_syslog {
     my ($spec) = @_;
+    my $level = _find_level("syslog");
+    if (!$level) {
+        $level = $spec->{level};
+        _debug("Setting level of syslog to general level ($level)");
+    }
     return {
-        level => _find_level("syslog") || $spec->{level},
+        level => $level,
         ident => $spec->{name},
         facility => 'daemon',
         pattern => '[pid %P] %m',
@@ -365,55 +415,89 @@ sub _check_level {
 }
 
 sub _find_level {
-    my ($prefix) = @_;
+    my ($prefix, $which) = @_;
     my $p_ = $prefix ? "${prefix}_" : "";
     my $P_ = $prefix ? uc("${prefix}_") : "";
     my $F_ = $prefix ? ucfirst("${prefix}_") : "";
     my $pd = $prefix ? "${prefix}-" : "";
     my $pr = $prefix ? qr/$prefix(_|-)/ : qr//;
     my $key;
+    my ($level, $from);
 
-    if ($INC{"App/Options.pm"}) {
-        return _check_level($App::options{$key}, "\$App::options{$key}") if $App::options{$key = $p_ . "log_level"};
-        return _check_level($App::options{$key}, "\$App::options{$key}") if $App::options{$key = $p_ . "loglevel"};
-        return "trace" if $App::options{$p_ . "trace"};
-        return "debug" if $App::options{$p_ . "debug"};
-        return "info" if $App::options{$p_ . "verbose"};
-        return "error" if $App::options{$p_ . "quiet"};
+    my @label2level =([trace=>"trace"], [debug=>"debug"], [verbose=>"info"], [quiet=>"error"]);
+
+  FIND:
+    {
+        if ($INC{"App/Options.pm"}) {
+            for (qw/log_level loglevel/) {
+                if ($App::options{$key = $p_ . $_}) {
+                    $level = _check_level($App::options{$key}, "\$App::options{$key}");
+                    $from = "\$App::options{$key}";
+                    last FIND;
+                }
+            }
+            for (@label2level) {
+                if ($App::options{$key = $p_ . $_->[0]}) {
+                    $level = $_->[1];
+                    $from = "\$App::options{$key}";
+                    last FIND;
+                }
+            }
+        }
+
+        my $i = 0;
+        while ($i < @ARGV) {
+            my $arg = $ARGV[$i];
+            $from = "cmdline arg $arg";
+            do { $level = _check_level($1, "ARGV $arg"); last FIND }
+                if $arg =~ /^--${pr}log[_-]?level=(.+)/;
+            do { $level = _check_level($ARGV[$i+1], "ARGV $arg ".$ARGV[$i+1]); last FIND }
+                if $arg =~ /^--${pr}log[_-]?level$/ and $i < @ARGV-1;
+            for (@label2level) {
+                if ($arg =~ /^--${pr}$_->[0](=(1|yes|true))?$/i) {
+                    $level = $_->[1];
+                    last FIND;
+                }
+            }
+            $i++;
+        }
+
+        for (qw/LOG_LEVEL LOGLEVEL/) {
+            if ($ENV{$key = $P_ . $_}) {
+                $level = _check_level($ENV{$key}, "ENV $key");
+                $from = "\$ENV{$key}";
+                last FIND;
+            }
+        }
+        for (@label2level) {
+            if ($ENV{$key = $P_ . $_->[0]}) {
+                $level = $_->[1];
+                $from = "\$ENV{$key}";
+                last FIND;
+            }
+        }
+
+        no strict 'refs';
+        for ("${F_}Log_Level", "${P_}LOG_LEVEL", "${p_}log_level",
+             "${F_}LogLevel",  "${P_}LOGLEVEL",  "${p_}loglevel") {
+            if (($key = "main::$_") && $$key) {
+                $from = "\$$key";
+                $level = _check_level($$key, "\$$key");
+                last FIND;
+            }
+        }
+        for (@label2level) {
+            if (($key = "main::$F_" . ucfirst($_->[0])) && $$key ||
+                ($key = "main::$P_" . uc($_->[0])) && $$key) {
+                $from = "\$$key";
+                $level = $_->[1];
+                last FIND;
+            }
+        }
     }
 
-    my $i = 0;
-    while ($i < @ARGV) {
-        my $arg = $ARGV[$i];
-        return _check_level($1, "ARGV $arg") if $arg =~ /^--${pr}log[_-]?level=(.+)/;
-        return _check_level($ARGV[$i+1], "ARGV $ARGV[$i] ".$ARGV[$i+1]) if $arg =~ /^--${pr}log[_-]?level$/ and $i < @ARGV-1;
-        return "trace"  if $arg =~ /^--${pr}trace(=(1|yes|true))?$/i;
-        return "debug"  if $arg =~ /^--${pr}debug(=(1|yes|true))?$/i;
-        return "info"   if $arg =~ /^--${pr}verbose(=(1|yes|true))?$/i;
-        return "error"  if $arg =~ /^--${pr}quiet(=(1|yes|true))?$/i;
-        $i++;
-    }
-
-    return _check_level($ENV{$key}, "ENV $key") if $ENV{$key = $P_ . "LOG_LEVEL"};
-    return _check_level($ENV{$key}, "ENV $key") if $ENV{$key = $P_ . "LOGLEVEL"};
-    return "trace" if $ENV{$P_ . "TRACE"};
-    return "debug" if $ENV{$P_ . "DEBUG"};
-    return "info"  if $ENV{$P_ . "VERBOSE"};
-    return "error" if $ENV{$P_ . "QUIET"};
-
-    no strict 'refs';
-    return _check_level($$key, "\$$key") if (($key = "main::${F_}Log_Level") && $$key);
-    return _check_level($$key, "\$$key") if (($key = "main::${P_}LOG_LEVEL") && $$key);
-    return _check_level($$key, "\$$key") if (($key = "main::${p_}log_level") && $$key);
-    return _check_level($$key, "\$$key") if (($key = "main::${F_}LogLevel") && $$key);
-    return _check_level($$key, "\$$key") if (($key = "main::${P_}LOGLEVEL") && $$key);
-    return _check_level($$key, "\$$key") if (($key = "main::${p_}loglevel") && $$key);
-    return "trace" if (($key = "main::$F_" . "Trace"  ) && $$key || ($key = "main::$P_" . "TRACE"  ) && $$key || ($key = "main::$p_" . "trace"  ) && $$key);
-    return "debug" if (($key = "main::$F_" . "Debug"  ) && $$key || ($key = "main::$P_" . "DEBUG"  ) && $$key || ($key = "main::$p_" . "debug"  ) && $$key);
-    return "info"  if (($key = "main::$F_" . "Verbose") && $$key || ($key = "main::$P_" . "VERBOSE") && $$key || ($key = "main::$p_" . "verbose") && $$key);
-    return "error" if (($key = "main::$F_" . "Quiet"  ) && $$key || ($key = "main::$P_" . "QUIET"  ) && $$key || ($key = "main::$p_" . "quiet"  ) && $$key);
-
-    return;
+    _debug("Setting ", ($which ? "level of $which" : "general level"), " to $level (from $from)") if $level;
+    return $level;
 }
 
 # return the higher level (e.g. _max_level("debug", "INFO") -> INFO
@@ -425,13 +509,20 @@ sub _max_level {
 
 sub _export_logger {
     my ($caller) = @_;
-    no strict 'refs';
+    my $log_for_caller = Log::Any->get_logger(category => $caller);
     my $varname = "$caller\::log";
-    *$varname = \$log;
+    no strict 'refs';
+    *$varname = \$log_for_caller;
+}
+
+sub _debug {
+    print @_, "\n" if $ENV{LOGANYAPP_DEBUG};
 }
 
 sub import {
     my ($self, @args) = @_;
+    my $caller = caller();
+    _parse_args(\@args, $caller);
     $init_args = \@args;
 }
 
@@ -453,7 +544,7 @@ Log::Any::App - A simple wrapper for Log::Any + Log::Log4perl for use in applica
 
 =head1 VERSION
 
-version 0.01
+version 0.02
 
 =head1 SYNOPSIS
 
@@ -580,8 +671,9 @@ For all the available options, see the init() function.
 =head2 init(\@args)
 
 This is the actual function that implements the setup and
-configuration of everything. You normally need not call this function
-explicitly, it will be called once in a CHECK block. In fact, when you do:
+configuration of logging. You normally need not call this function
+explicitly, it will be called once in a CHECK block. In fact, when you
+do:
 
  use Log::Any::App 'a', 'b', 'c';
 
@@ -592,11 +684,6 @@ it is actually passed as:
 Arguments to init can be one or more of:
 
 =over 4
-
-=item '$log'
-
-This will export the default logger to the caller's package. If you
-want other category than the default:
 
 =item -init => BOOL
 
@@ -760,6 +847,11 @@ variables in main are also searched first (for B<SYSLOG_LOG_LEVEL>,
 B<SYSLOG_TRACE>, B<SYSLOG_DEBUG>, B<SYSLOG_VERBOSE>, B<SYSLOG_QUIET>,
 and the similars).
 
+=item -dump => BOOL
+
+If set to true then Log::Any::App will dump the generated Log4perl
+config. Useful for debugging the logging.
+
 =back
 
 =head1 FAQ
@@ -812,6 +904,12 @@ logging at all.
 The usual way as with Log::Any:
 
  my $other_log = Log::Any->get_logger(category => $category);
+
+=head2 How do I see the Log4perl configuration that gets used?
+
+Set environment LOGANYAPP_DEBUG to true, and Log::Any::App will dump
+the Log4perl configuration as well as additional messages to help you
+trace how it came up to be.
 
 =head1 BUGS/TODOS
 
