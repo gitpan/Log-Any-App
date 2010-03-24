@@ -20,12 +20,12 @@ my %module_build_args = (
                                        'Test::More' => '0',
                                        'Log::Dispatch::Dir' => '0',
                                        'Log::Dispatch::Syslog' => '0',
-                                       'File::Path' => '0',
+                                       'File::Path' => '2.07',
                                        'Log::Dispatch::FileRotate' => '0',
                                        'Log::Log4perl' => '0',
                                        'Log::Any::Adapter::Log4perl' => '0'
                                      },
-                       'dist_version' => '0.02',
+                       'dist_version' => '0.03',
                        'license' => 'perl'
                      );
 

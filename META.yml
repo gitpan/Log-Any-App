@@ -14,7 +14,7 @@ meta-spec:
 name: Log-Any-App
 requires:
   File::HomeDir: 0
-  File::Path: 0
+  File::Path: 2.07
   File::Spec: 0
   Log::Any: 0
   Log::Any::Adapter: 0
@@ -24,4 +24,4 @@ requires:
   Log::Dispatch::Syslog: 0
   Log::Log4perl: 0
   Test::More: 0
-version: 0.02
+version: 0.03

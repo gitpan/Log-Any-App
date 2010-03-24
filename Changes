@@ -1,5 +1,8 @@
 Revision history for Log-Any-App
 
+0.03     2010-03-24
+         - Require File::Path >= 2.07 (for make_path)
+
 0.02     2010-03-19
          - Add -dump option.
          - default mode append for file.
