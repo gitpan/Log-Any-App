@@ -1,5 +1,5 @@
 package Log::Any::App;
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 # ABSTRACT: A simple wrapper for Log::Any + Log::Log4perl for use in applications
 
 
@@ -544,7 +544,7 @@ Log::Any::App - A simple wrapper for Log::Any + Log::Log4perl for use in applica
 
 =head1 VERSION
 
-version 0.03
+version 0.04
 
 =head1 SYNOPSIS
 

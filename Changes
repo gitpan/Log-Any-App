@@ -1,5 +1,8 @@
 Revision history for Log-Any-App
 
+0.04     2010-03-24
+         - Don't log to file when testing.
+
 0.03     2010-03-24
          - Require File::Path >= 2.07 (for make_path)
 
