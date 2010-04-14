@@ -1,5 +1,12 @@
 Revision history for Log-Any-App
 
+0.06     2010-04-09
+         - Fixed wrong version (typo) in dependency
+         
+0.05     2010-04-09
+         - Require newer version of Log::Any & Log::Any::Adapter
+         - Bug fix: did not DEBUG, TRACE, etc environment correctly
+         
 0.04     2010-03-24
          - Don't log to file when testing.
 

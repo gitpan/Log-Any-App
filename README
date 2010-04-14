@@ -3,7 +3,7 @@ NAME
     applications
 
 VERSION
-    version 0.04
+    version 0.06
 
 SYNOPSIS
         # in your script/application
@@ -81,17 +81,21 @@ USING
      use Log::Any::App '$log';
      BEGIN {
          $Log_Level = 'fatal'; # setting to fatal
-         # $Debug = 1;         # another way, setting to debug
-         # $Verbose = 1;       # another way, setting to info
          # $Quiet = 1;         # another way, setting to error
+         # $Log_Level= 'warn'; # setting to warn, default
+         # $Verbose = 1;       # another way, setting to info
+         # $Debug = 1;         # another way, setting to debug
+         # $Trace = 1;         # another way, setting to trace
      }
 
     or from environment variable:
 
      LOG_LEVEL=fatal yourprogram.pl;   # setting level to fatal
-     DEBUG=1 yourprogram.pl;           # setting level to debug
-     VERBOSE=1 yourprogram.pl;         # setting level to info
-     QUIET=1 yourproogram.pl;          # setting level to error
+     QUIET=1 yourproogram.pl;          # another way, setting to error
+     LOG_LEVEL=warn yourprogram.pl;    # setting level to warn, default
+     VERBOSE=1 yourprogram.pl;         # another way, setting to info
+     DEBUG=1 yourprogram.pl;           # another way, setting to debug
+     TRACE=1 yourprogram.pl;           # another way, setting to trace
 
     or, from the command line options:
 
@@ -158,13 +162,13 @@ FUNCTIONS
         works because Log::Any::App does this in the CHECK phase, before you
         call Getopt::Long's GetOptions() or the like).
 
-        Otherwise, it will look for environment variables: LOG_LEVEL, TRACE,
-        DEBUG, VERBOSE, QUIET.
+        Otherwise, it will look for environment variables: LOG_LEVEL, QUIET.
+        VERBOSE, DEBUG, TRACE.
 
         Otherwise, it will try to search for package variables in the "main"
         namespace with names like $Log_Level or $LOG_LEVEL or $log_level,
-        $Trace or $TRACE or $trace, $Debug or $DEBUG or $debug, $Verbose or
-        $VERBOSE or $verbose, $Quiet or $QUIET or $quiet.
+        $Quiet or $QUIET or $quiet, $Verbose or $VERBOSE or $verbose, $Trace
+        or $TRACE or $trace, $Debug or $DEBUG or $debug.
 
         If everything fails, it defaults to 'warn'.
 

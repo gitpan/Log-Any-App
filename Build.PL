@@ -2,34 +2,30 @@
 use strict;
 use warnings;
 
-use Module::Build 0.3601;
+use Module::Build;
 
-my %module_build_args = (
-                       'dist_abstract' => 'A simple wrapper for Log::Any + Log::Log4perl for use in applications',
-                       'dist_author' => [
-                                          'Steven Haryanto <stevenharyanto@gmail.com>'
-                                        ],
-                       'dist_name' => 'Log-Any-App',
-                       'script_files' => [],
-                       'module_name' => 'Log::Any::App',
-                       'requires' => {
-                                       'File::HomeDir' => '0',
-                                       'File::Spec' => '0',
-                                       'Log::Any' => '0',
-                                       'Log::Any::Adapter' => '0',
-                                       'Test::More' => '0',
-                                       'Log::Dispatch::Dir' => '0',
-                                       'Log::Dispatch::Syslog' => '0',
-                                       'File::Path' => '2.07',
-                                       'Log::Dispatch::FileRotate' => '0',
-                                       'Log::Log4perl' => '0',
-                                       'Log::Any::Adapter::Log4perl' => '0'
-                                     },
-                       'dist_version' => '0.04',
-                       'license' => 'perl'
-                     );
-
-
-my $build = Module::Build->new(%module_build_args);
+my $build = Module::Build->new(
+  module_name   => 'Log::Any::App',
+  license       => 'perl',
+  dist_abstract => "A\ simple\ wrapper\ for\ Log\:\:Any\ \+\ Log\:\:Log4perl\ for\ use\ in\ applications",
+  dist_name     => "Log\-Any\-App",
+  dist_author   => [
+"Steven\ Haryanto\ \<stevenharyanto\@gmail\.com\>",
+  ],
+  requires      => {
+    "File::HomeDir" => '0',
+    "File::Spec" => '0',
+    "Log::Any" => '0.11',
+    "Log::Any::Adapter" => '0.03',
+    "Test::More" => '0',
+    "Log::Dispatch::Dir" => '0',
+    "Log::Dispatch::Syslog" => '0',
+    "File::Path" => '2.07',
+    "Log::Dispatch::FileRotate" => '0',
+    "Log::Log4perl" => '0',
+    "Log::Any::Adapter::Log4perl" => '0',
+  },
+  script_files => [ qw() ],
+);
 
 $build->create_build_script;
