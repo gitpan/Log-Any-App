@@ -3,7 +3,7 @@ NAME
     applications
 
 VERSION
-    version 0.06
+    version 0.07
 
 SYNOPSIS
         # in your script/application
@@ -129,7 +129,7 @@ FUNCTIONS
   init(\@args)
     This is the actual function that implements the setup and configuration
     of logging. You normally need not call this function explicitly, it will
-    be called once in a CHECK block. In fact, when you do:
+    be called once in an INIT block. In fact, when you do:
 
      use Log::Any::App 'a', 'b', 'c';
 
@@ -159,7 +159,7 @@ FUNCTIONS
 
         Otherwise, it will try to scrape @ARGV for the presence of
         --log-level, --trace, --debug, --verbose, or --quiet (this usually
-        works because Log::Any::App does this in the CHECK phase, before you
+        works because Log::Any::App does this in the INIT phase, before you
         call Getopt::Long's GetOptions() or the like).
 
         Otherwise, it will look for environment variables: LOG_LEVEL, QUIET.

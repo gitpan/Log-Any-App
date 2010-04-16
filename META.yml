@@ -3,10 +3,10 @@ abstract: 'A simple wrapper for Log::Any + Log::Log4perl for use in applications
 author:
   - 'Steven Haryanto <stevenharyanto@gmail.com>'
 build_requires:
-  Module::Build: 0.35
+  Module::Build: 0.3601
 configure_requires:
-  Module::Build: 0.35
-generated_by: 'Dist::Zilla version 1.093400'
+  Module::Build: 0.3601
+generated_by: 'Dist::Zilla version 1.100520'
 license: perl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
@@ -24,4 +24,4 @@ requires:
   Log::Dispatch::Syslog: 0
   Log::Log4perl: 0
   Test::More: 0
-version: 0.06
+version: 0.07
