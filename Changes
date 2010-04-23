@@ -1,5 +1,8 @@
 Revision history for Log-Any-App
 
+0.08     2010-04-23
+         - Add pattern_style.
+
 0.07     2010-04-16
          - Changed running init() in INIT phase instead of CHECK (to
            prevent it running when under -c).

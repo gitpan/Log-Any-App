@@ -6,11 +6,15 @@ use Module::Build 0.3601;
 
 my %module_build_args = (
                        'dist_abstract' => 'A simple wrapper for Log::Any + Log::Log4perl for use in applications',
+                       'script_files' => [],
+                       'license' => 'perl',
+                       'build_requires' => {
+                                             'Module::Build' => '0.3601'
+                                           },
+                       'dist_name' => 'Log-Any-App',
                        'dist_author' => [
                                           'Steven Haryanto <stevenharyanto@gmail.com>'
                                         ],
-                       'dist_name' => 'Log-Any-App',
-                       'script_files' => [],
                        'module_name' => 'Log::Any::App',
                        'requires' => {
                                        'File::HomeDir' => '0',
@@ -25,8 +29,11 @@ my %module_build_args = (
                                        'Log::Log4perl' => '0',
                                        'Log::Any::Adapter::Log4perl' => '0'
                                      },
-                       'dist_version' => '0.07',
-                       'license' => 'perl'
+                       'recommends' => {},
+                       'configure_requires' => {
+                                                 'Module::Build' => '0.3601'
+                                               },
+                       'dist_version' => '0.08'
                      );
 
 

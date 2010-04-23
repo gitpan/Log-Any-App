@@ -1,5 +1,7 @@
 package Log::Any::App;
-our $VERSION = '0.07';
+BEGIN {
+  $Log::Any::App::VERSION = '0.08';
+}
 # ABSTRACT: A simple wrapper for Log::Any + Log::Log4perl for use in applications
 
 
@@ -13,6 +15,13 @@ use File::Spec;
 use Log::Any;
 use Log::Any::Adapter;
 use Log::Log4perl;
+
+my %PATTERN_STYLES = (
+    plain             => '%m',
+    script_short      => '[%r] %m%n',
+    script_long       => '[%d] %m%n',
+    daemon            => '[pid %P] [%d] %m%n',
+);
 
 
 my $init_args;
@@ -266,7 +275,8 @@ sub _default_file {
         max_size => undef,
         histories => undef,
         category => '',
-        pattern => '[pid %P] [%d] %m%n',
+        pattern_style => 'daemon',
+        pattern => undef,
     };
 }
 
@@ -286,6 +296,7 @@ sub _parse_opt_file {
                 $_->{$k} = $k eq 'level' ? _check_level($arg->{$k}, "-file") : $arg->{$k};
             }
         }
+        _set_pattern($spec->{files}[-1], 'file');
     } elsif (ref($arg) eq 'ARRAY') {
         _parse_opt_file($spec, $_) for @$arg;
     } else {
@@ -308,7 +319,8 @@ sub _default_dir {
         max_age => undef,
         histories => undef,
         category => '',
-        pattern => '%m',
+        pattern_style => 'plain',
+        pattern => undef,
         filename_pattern => 'pid-%{pid}-%Y-%m-%d-%H%M%S.txt',
     };
 }
@@ -329,6 +341,7 @@ sub _parse_opt_dir {
                 $_->{$k} = $k eq 'level' ? _check_level($arg->{$k}, "-dir") : $arg->{$k};
             }
         }
+        _set_pattern($spec->{dirs}[-1], 'dir');
     } elsif (ref($arg) eq 'ARRAY') {
         _parse_opt_dir($spec, $_) for @$arg;
     } else {
@@ -348,7 +361,8 @@ sub _default_screen {
         stderr => 1,
         level => $level,
         category => '',
-        pattern => '[%r] %m%n',
+        pattern_style => 'script_short',
+        pattern => undef,
     };
 }
 
@@ -364,6 +378,7 @@ sub _parse_opt_screen {
                 $_->{$k} = $k eq 'level' ? _check_level($arg->{$k}, "-screen") : $arg->{$k};
             }
         }
+        _set_pattern($spec->{screens}[0], 'screen');
     } else {
         die "Invalid argument for -screen, must be a boolean or hashref";
     }
@@ -380,7 +395,8 @@ sub _default_syslog {
         level => $level,
         ident => $spec->{name},
         facility => 'daemon',
-        pattern => '[pid %P] %m',
+        pattern_style => 'syslog',
+        pattern => undef,
         category => '',
     };
 }
@@ -397,8 +413,20 @@ sub _parse_opt_syslog {
                 $_->{$k} = $k eq 'level' ? _check_level($arg->{$k}, "-syslog") : $arg->{$k};
             }
         }
+        _set_pattern($spec->{syslogs}[0], 'syslog');
     } else {
         die "Invalid argument for -syslog, must be a boolean or hashref";
+    }
+}
+
+sub _set_pattern {
+    my ($s, $name) = @_;
+    unless (defined($s->{pattern})) {
+        die "BUG: neither pattern nor pattern_style is defined ($name)"
+            unless defined($s->{pattern_style});
+        die "Unknown pattern styles for $name, use one of: ".join(", ", keys %PATTERN_STYLES)
+            unless defined($PATTERN_STYLES{ $s->{pattern_style} });
+        $s->{pattern} = $PATTERN_STYLES{ $s->{pattern_style} };
     }
 }
 
@@ -544,7 +572,7 @@ Log::Any::App - A simple wrapper for Log::Any + Log::Log4perl for use in applica
 
 =head1 VERSION
 
-version 0.07
+version 0.08
 
 =head1 SYNOPSIS
 
@@ -739,8 +767,8 @@ another scalar value then it is assumed to be a path. If the argument
 is a hashref, then the keys of the hashref must be one of: C<level>,
 C<path>, C<max_size> (maximum size before rotating, in bytes, 0 means
 unlimited or never rotate), C<histories> (number of old files to keep,
-excluding the current file), C<category>, C<pattern> (Log4perl
-pattern).
+excluding the current file), C<category>, C<pattern_style> (see
+L<"PATTERN STYLES">), C<pattern> (Log4perl pattern).
 
 If the argument is an arrayref, it is assumed to be specifying
 multiple files, with each element of the array as a hashref.
@@ -778,8 +806,9 @@ C<level>, C<path>, C<max_size> (maximum total size of files before
 deleting older files, in bytes, 0 means unlimited), C<max_age>
 (maximum age of files to keep, in seconds, undef means
 unlimited). C<histories> (number of old files to keep, excluding the
-current file), C<category>, C<pattern> (Log4perl pattern),
-C<filename_pattern> (pattern of file name).
+current file), C<category>, C<pattern_style> (see L<"PATTERN STYLES">),
+C<pattern> (Log4perl pattern), C<filename_pattern> (pattern of file
+name).
 
 If the argument is an arrayref, it is assumed to be specifying
 multiple directories, with each element of the array as a hashref.
@@ -813,7 +842,8 @@ turned off. If argument is a true value that matches
 settings. If the argument is a hashref, then the keys of the hashref
 must be one of: C<color> (default is true, set to 0 to turn off
 color), C<stderr> (default is true, set to 0 to log to stdout
-instead), C<level>, C<category>, C<pattern> (Log4perl string pattern).
+instead), C<level>, C<category>, C<pattern_style> (see L<"PATTERN
+STYLE">), C<pattern> (Log4perl string pattern).
 
 How Log::Any::App determines defaults for screen logging:
 
@@ -834,7 +864,8 @@ turned off. If argument is a true value that matches
 /^(1|yes|true)$/i, syslog logging will be turned on with default
 level, ident, etc. If the argument is a hashref, then the keys of the
 hashref must be one of: C<level>, C<ident>, C<facility>, C<category>,
-C<pattern> (Log4perl pattern).
+C<pattern_style> (see L<"PATTERN STYLES">), C<pattern> (Log4perl
+pattern).
 
 How Log::Any::App determines defaults for syslog logging:
 
@@ -857,6 +888,52 @@ If set to true then Log::Any::App will dump the generated Log4perl
 config. Useful for debugging the logging.
 
 =back
+
+=head1 PATTERN STYLES
+
+Log::Any::App provides some styles for Log4perl patterns. You can
+specify C<pattern_style> instead of directly specifying
+C<pattern>. example:
+
+ use Log::Any::App -screen => {pattern_style=>"script_long"};
+
+ Name           Description                        Example output
+ ----           -----------                        --------------
+ plain          The message, the whole message,    Message
+                and nothing but the message.
+                Used by dir logging.
+
+                Equivalent to pattern: '%m'
+
+ script_short   For scripts that run for a short   [234] Message
+                time (a few seconds). Shows just
+                the number of milliseconds. This
+                is the default for screen.
+
+                Equivalent to pattern:
+                '[%r] %m%n'
+
+ script_long    Scripts that will run for a        [2010-04-22 18:01:02] Message
+                while (more than a few seconds).
+                Shows date/time.
+
+                Equivalent to pattern:
+                '[%d] %m%n'
+
+ daemon         For typical daemons. Shows PID     [pid 1234] [2010-04-22 18:01:02] Message
+                and date/time. This is the
+                default for file logging.
+
+                Equivalent to pattern:
+                '[pid %P] [%d] %m%n'
+
+ syslog         Style suitable for syslog          [pid 1234] Message
+                logging.
+
+                Equivalent to pattern:
+                '[pid %p] %m'
+
+If you have a favorite pattern style, please do share them.
 
 =head1 FAQ
 
