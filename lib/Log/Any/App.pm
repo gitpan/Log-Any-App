@@ -1,6 +1,6 @@
 package Log::Any::App;
 BEGIN {
-  $Log::Any::App::VERSION = '0.09';
+  $Log::Any::App::VERSION = '0.10';
 }
 # ABSTRACT: A simple wrapper for Log::Any + Log::Log4perl for use in applications
 
@@ -21,6 +21,7 @@ my %PATTERN_STYLES = (
     script_short      => '[%r] %m%n',
     script_long       => '[%d] %m%n',
     daemon            => '[pid %P] [%d] %m%n',
+    syslog            => '[pid %p] %m',
 );
 
 
@@ -178,15 +179,8 @@ sub _parse_args {
 sub _parse_opts {
     my ($args, $caller) = @_;
 
-    my $level = _find_level("", "");
-    if (!$level) {
-        $level = "warn";
-        _debug("Setting general level to default ($level)");
-    }
-
     my $spec = {
         name => _basename($0),
-        level => $level,
         init => 1,
         dump => ($ENV{LOGANYAPP_DEBUG} ? 1:0),
     };
@@ -203,54 +197,46 @@ sub _parse_opts {
         $i++;
     }
 
-    if (defined $opts{level}) {
+    $spec->{level} = _find_level("", "");
+    if (!$spec->{level} && defined($opts{level})) {
         $spec->{level} = _check_level($opts{level}, "-level");
-        delete $opts{level};
+        _debug("Setting general level to $spec->{level} (from -level)");
+    } elsif (!$spec->{level}) {
+        $spec->{level} = "warn";
+        _debug("Setting general level to $spec->{level} (default)");
     }
+    delete $opts{level};
+
     if (defined $opts{init}) {
         $spec->{init} = $opts{init};
         delete $opts{init};
     }
+
     if (defined $opts{name}) {
         $spec->{name} = $opts{name};
         delete $opts{name};
     }
+
     if (defined $opts{dump}) {
         $spec->{dump} = 1;
         delete $opts{dump};
     }
 
-    if (defined $opts{file}) {
-        $spec->{files} = [];
-        _parse_opt_file($spec, $opts{file});
-        delete $opts{file};
-    } else {
-        $spec->{files} = $0 eq '-e' ? [] : [_default_file($spec)];
-    }
+    $spec->{files} = [];
+    _parse_opt_file($spec, $opts{file} // ($0 ne '-e' ? 1:0));
+    delete $opts{file};
 
-    if (defined $opts{dir}) {
-        $spec->{dirs} = [];
-        _parse_opt_dir($spec, $opts{dir});
-        delete $opts{dir};
-    } else {
-        $spec->{dirs} = [];
-    }
+    $spec->{dirs} = [];
+    _parse_opt_dir($spec, $opts{dir} // 0);
+    delete $opts{dir};
 
-    if (defined $opts{screen}) {
-        $spec->{screens} = [];
-        _parse_opt_screen($spec, $opts{screen});
-        delete $opts{screen};
-    } else {
-        $spec->{screens} = [_default_screen($spec)];
-    }
+    $spec->{screens} = [];
+    _parse_opt_screen($spec, $opts{screen} // 1);
+    delete $opts{screen};
 
-    if (defined $opts{syslog}) {
-        $spec->{syslogs} = [];
-        _parse_opt_syslog($spec, $opts{syslog});
-        delete $opts{syslog};
-    } else {
-        $spec->{syslogs} = _is_daemon() ? [_default_syslog($spec)] : [];
-    }
+    $spec->{syslogs} = [];
+    _parse_opt_syslog($spec, $opts{syslog} // (_is_daemon()));
+    delete $opts{syslog};
 
     if (keys %opts) {
         die "Unknown option(s) ".join(", ", keys %opts)." Known opts are: ".
@@ -304,15 +290,18 @@ sub _parse_opt_file {
     return unless $arg;
     if (!ref($arg) || ref($arg) eq 'HASH') {
         push @{ $spec->{files} }, _default_file($spec);
-        return if $arg =~ /^(1|yes|true)$/i;
         if (!ref($arg)) {
-            $spec->{files}[-1]{path} = $arg;
-            return;
-        }
-        for my $k (keys %$arg) {
-            for ($spec->{files}[-1]) {
-                exists($_->{$k}) or die "Invalid file argument: $k, please only specify one of: " . join(", ", sort keys %$_);
-                $_->{$k} = $k eq 'level' ? _check_level($arg->{$k}, "-file") : $arg->{$k};
+            if ($arg =~ /^(1|yes|true)$/i) {
+                #
+            } else {
+                $spec->{files}[-1]{path} = $arg;
+            }
+        } else {
+            for my $k (keys %$arg) {
+                for ($spec->{files}[-1]) {
+                    exists($_->{$k}) or die "Invalid file argument: $k, please only specify one of: " . join(", ", sort keys %$_);
+                    $_->{$k} = $k eq 'level' ? _check_level($arg->{$k}, "-file") : $arg->{$k};
+                }
             }
         }
         _set_pattern($spec->{files}[-1], 'file');
@@ -349,15 +338,18 @@ sub _parse_opt_dir {
     return unless $arg;
     if (!ref($arg) || ref($arg) eq 'HASH') {
         push @{ $spec->{dirs} }, _default_dir($spec);
-        return if $arg =~ /^(1|yes|true)$/i;
         if (!ref($arg)) {
-            $spec->{dirs}[-1]{path} = $arg;
-            return;
-        }
-        for my $k (keys %$arg) {
-            for ($spec->{dirs}[-1]) {
-                exists($_->{$k}) or die "Invalid dir argument: $k, please only specify one of: " . join(", ", sort keys %$_);
-                $_->{$k} = $k eq 'level' ? _check_level($arg->{$k}, "-dir") : $arg->{$k};
+            if ($arg =~ /^(1|yes|true)$/i) {
+                #
+            } else {
+                $spec->{dirs}[-1]{path} = $arg;
+            }
+        } else {
+            for my $k (keys %$arg) {
+                for ($spec->{dirs}[-1]) {
+                    exists($_->{$k}) or die "Invalid dir argument: $k, please only specify one of: " . join(", ", sort keys %$_);
+                    $_->{$k} = $k eq 'level' ? _check_level($arg->{$k}, "-dir") : $arg->{$k};
+                }
             }
         }
         _set_pattern($spec->{dirs}[-1], 'dir');
@@ -389,18 +381,19 @@ sub _parse_opt_screen {
     my ($spec, $arg) = @_;
     return unless $arg;
     push @{ $spec->{screens} }, _default_screen($spec);
-    return if $arg =~ /^(1|yes|true)$/i;
-    if (ref($arg) eq 'HASH') {
+    if (!ref($arg)) {
+        #
+    } elsif (ref($arg) eq 'HASH') {
         for my $k (keys %$arg) {
             for ($spec->{screens}[0]) {
                 exists($_->{$k}) or die "Invalid screen argument: $k, please only specify one of: " . join(", ", sort keys %$_);
                 $_->{$k} = $k eq 'level' ? _check_level($arg->{$k}, "-screen") : $arg->{$k};
             }
         }
-        _set_pattern($spec->{screens}[0], 'screen');
     } else {
         die "Invalid argument for -screen, must be a boolean or hashref";
     }
+    _set_pattern($spec->{screens}[0], 'screen');
 }
 
 sub _default_syslog {
@@ -424,18 +417,19 @@ sub _parse_opt_syslog {
     my ($spec, $arg) = @_;
     return unless $arg;
     push @{ $spec->{syslogs} }, _default_syslog($spec);
-    return if $arg =~ /^(1|yes|true)$/i;
-    if (ref($arg) eq 'HASH') {
+    if (!ref($arg)) {
+        #
+    } elsif (ref($arg) eq 'HASH') {
         for my $k (keys %$arg) {
             for ($spec->{syslogs}[0]) {
                 exists($_->{$k}) or die "Invalid syslog argument: $k, please only specify one of: " . join(", ", sort keys %$_);
                 $_->{$k} = $k eq 'level' ? _check_level($arg->{$k}, "-syslog") : $arg->{$k};
             }
         }
-        _set_pattern($spec->{syslogs}[0], 'syslog');
     } else {
         die "Invalid argument for -syslog, must be a boolean or hashref";
     }
+    _set_pattern($spec->{syslogs}[0], 'syslog');
 }
 
 sub _set_pattern {
@@ -443,9 +437,10 @@ sub _set_pattern {
     unless (defined($s->{pattern})) {
         die "BUG: neither pattern nor pattern_style is defined ($name)"
             unless defined($s->{pattern_style});
-        die "Unknown pattern styles for $name, use one of: ".join(", ", keys %PATTERN_STYLES)
+        die "Unknown pattern style for $name `$s->{pattern_style}`, use one of: ".join(", ", keys %PATTERN_STYLES)
             unless defined($PATTERN_STYLES{ $s->{pattern_style} });
         $s->{pattern} = $PATTERN_STYLES{ $s->{pattern_style} };
+        _debug("Setting $name pattern to `$s->{pattern}` (from style `$s->{pattern_style}`)");
     }
 }
 
@@ -591,7 +586,7 @@ Log::Any::App - A simple wrapper for Log::Any + Log::Log4perl for use in applica
 
 =head1 VERSION
 
-version 0.09
+version 0.10
 
 =head1 SYNOPSIS
 

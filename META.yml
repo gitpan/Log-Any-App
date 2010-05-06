@@ -25,4 +25,4 @@ requires:
   Log::Dispatch::Syslog: 0
   Log::Log4perl: 0
   Test::More: 0
-version: 0.09
+version: 0.10
