@@ -1,6 +1,6 @@
 package Log::Any::App;
 BEGIN {
-  $Log::Any::App::VERSION = '0.08';
+  $Log::Any::App::VERSION = '0.09';
 }
 # ABSTRACT: A simple wrapper for Log::Any + Log::Log4perl for use in applications
 
@@ -192,50 +192,69 @@ sub _parse_opts {
     };
 
     my $i = 0;
+    my %opts;
     while ($i < @$args) {
         my $arg = $args->[$i];
         do { $i++; next } unless $arg =~ /^-(\w+)$/;
         my $opt = $1;
         die "Missing argument for option $opt" unless $i++ < @$args-1;
         $arg = $args->[$i];
-        if ($opt eq 'init') {
-            $spec->{init} = $arg;
-        } elsif ($opt eq 'name') {
-            $spec->{name} = $arg;
-        } elsif ($opt eq 'level') {
-            $spec->{level} = _check_level($arg, "-level");
-        } elsif ($opt eq 'file') {
-            $spec->{files} = [];
-            _parse_opt_file($spec, $arg);
-        } elsif ($opt eq 'dir') {
-            $spec->{dirs} = [];
-            _parse_opt_dir($spec, $arg);
-        } elsif ($opt eq 'screen') {
-            $spec->{screens} = [];
-            _parse_opt_screen($spec, $arg);
-        } elsif ($opt eq 'syslog') {
-            $spec->{syslogs} = [];
-            _parse_opt_syslog($spec, $arg);
-        } elsif ($opt eq 'dump') {
-            $spec->{dump} = 1;
-        } else {
-            die "Unknown option $opt, known opts are: ".
-                "name, level, file, dir, screen, syslog, dump, init";
-        }
+        $opts{$opt} = $arg;
         $i++;
     }
 
-    if (!$spec->{files}) {
+    if (defined $opts{level}) {
+        $spec->{level} = _check_level($opts{level}, "-level");
+        delete $opts{level};
+    }
+    if (defined $opts{init}) {
+        $spec->{init} = $opts{init};
+        delete $opts{init};
+    }
+    if (defined $opts{name}) {
+        $spec->{name} = $opts{name};
+        delete $opts{name};
+    }
+    if (defined $opts{dump}) {
+        $spec->{dump} = 1;
+        delete $opts{dump};
+    }
+
+    if (defined $opts{file}) {
+        $spec->{files} = [];
+        _parse_opt_file($spec, $opts{file});
+        delete $opts{file};
+    } else {
         $spec->{files} = $0 eq '-e' ? [] : [_default_file($spec)];
     }
-    if (!$spec->{dirs}) {
+
+    if (defined $opts{dir}) {
+        $spec->{dirs} = [];
+        _parse_opt_dir($spec, $opts{dir});
+        delete $opts{dir};
+    } else {
         $spec->{dirs} = [];
     }
-    if (!$spec->{screens}) {
+
+    if (defined $opts{screen}) {
+        $spec->{screens} = [];
+        _parse_opt_screen($spec, $opts{screen});
+        delete $opts{screen};
+    } else {
         $spec->{screens} = [_default_screen($spec)];
     }
-    if (!$spec->{syslogs}) {
+
+    if (defined $opts{syslog}) {
+        $spec->{syslogs} = [];
+        _parse_opt_syslog($spec, $opts{syslog});
+        delete $opts{syslog};
+    } else {
         $spec->{syslogs} = _is_daemon() ? [_default_syslog($spec)] : [];
+    }
+
+    if (keys %opts) {
+        die "Unknown option(s) ".join(", ", keys %opts)." Known opts are: ".
+            "name, level, file, dir, screen, syslog, dump, init";
     }
 
     #use Data::Dumper; print Dumper $spec;
@@ -572,7 +591,7 @@ Log::Any::App - A simple wrapper for Log::Any + Log::Log4perl for use in applica
 
 =head1 VERSION
 
-version 0.08
+version 0.09
 
 =head1 SYNOPSIS
 

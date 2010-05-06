@@ -1,5 +1,8 @@
 Revision history for Log-Any-App
 
+0.09     2010-05-06
+         - Fixed: Parsing -level should be done before other opts.
+
 0.08     2010-04-23
          - Add pattern_style.
 
