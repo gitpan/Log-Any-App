@@ -21,7 +21,7 @@ my %module_build_args = (
                                        'File::Spec' => '0',
                                        'Log::Any' => '0.11',
                                        'Log::Any::Adapter' => '0.03',
-                                       'Test::More' => '0',
+                                       'perl' => '5.010000',
                                        'Log::Dispatch::Dir' => '0',
                                        'Log::Dispatch::Syslog' => '0',
                                        'File::Path' => '2.07',
@@ -33,7 +33,7 @@ my %module_build_args = (
                        'configure_requires' => {
                                                  'Module::Build' => '0.3601'
                                                },
-                       'dist_version' => '0.10'
+                       'dist_version' => '0.11'
                      );
 
 

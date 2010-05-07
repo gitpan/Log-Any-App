@@ -1,5 +1,8 @@
 Revision history for Log-Any-App
 
+0.11     2010-05-07
+         - Require Perl 5.10
+
 0.10     2010-05-06
          - Fixed: determining general level (again!)
          - Fixed: setting pattern
