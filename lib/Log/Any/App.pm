@@ -1,10 +1,11 @@
 package Log::Any::App;
 BEGIN {
-  $Log::Any::App::VERSION = '0.11';
+  $Log::Any::App::VERSION = '0.13';
 }
 # ABSTRACT: A simple wrapper for Log::Any + Log::Log4perl for use in applications
 
 
+use 5.010;
 use strict;
 use warnings;
 
@@ -12,9 +13,12 @@ use Data::Dumper;
 use File::HomeDir;
 use File::Path qw(make_path);
 use File::Spec;
-use Log::Any;
+use Log::Any 0.11;
 use Log::Any::Adapter;
 use Log::Log4perl;
+# use Log::Dispatch::Dir
+# use Log::Dispatch::FileRotate
+# use Log::Dispatch::Syslog
 
 my %PATTERN_STYLES = (
     plain             => '%m',
@@ -61,8 +65,9 @@ sub _init_log4perl {
         my $cat = _format_category($_->{category});
         my $a = "DIR" . ($i++);
         $cats{$cat} ||= {appenders => [], level => $spec->{level}};
-        push @{ $cats{$cat}{appenders} }, $a;
+        next if $_->{level} eq 'off';
         $cats{$cat}{level} = _max_level($cats{$cat}{level}, $_->{level});
+        push @{ $cats{$cat}{appenders} }, $a;
         $config_appenders .= join(
             "",
             "log4perl.appender.$a = Log::Dispatch::Dir\n",
@@ -81,8 +86,9 @@ sub _init_log4perl {
         my $cat = _format_category($_->{category});
         my $a = "FILE" . ($i++);
         $cats{$cat} ||= {appenders => [], level => $spec->{level}};
-        push @{ $cats{$cat}{appenders} }, $a;
+        next if $_->{level} eq 'off';
         $cats{$cat}{level} = _max_level($cats{$cat}{level}, $_->{level});
+        push @{ $cats{$cat}{appenders} }, $a;
         $config_appenders .= join(
             "",
             "log4perl.appender.$a = Log::Dispatch::FileRotate\n",
@@ -100,8 +106,9 @@ sub _init_log4perl {
         my $cat = _format_category($_->{category});
         my $a = "SCREEN" . ($i++);
         $cats{$cat} ||= {appenders => [], level => $spec->{level}};
-        push @{ $cats{$cat}{appenders} }, $a;
+        next if $_->{level} eq 'off';
         $cats{$cat}{level} = _max_level($cats{$cat}{level}, $_->{level});
+        push @{ $cats{$cat}{appenders} }, $a;
         $config_appenders .= join(
             "",
             "log4perl.appender.$a = Log::Log4perl::Appender::" . ($_->{color} ? "ScreenColoredLevels" : "Screen") . "\n",
@@ -116,8 +123,9 @@ sub _init_log4perl {
         my $cat = _format_category($_->{category});
         my $a = "SYSLOG" . ($i++);
         $cats{$cat} ||= {appenders => [], level => $spec->{level}};
-        push @{ $cats{$cat}{appenders} }, $a;
+        next if $_->{level} eq 'off';
         $cats{$cat}{level} = _max_level($cats{$cat}{level}, $_->{level});
+        push @{ $cats{$cat}{appenders} }, $a;
         $config_appenders .= join(
             "",
             "log4perl.appender.$a = Log::Dispatch::Syslog\n",
@@ -452,7 +460,7 @@ sub _format_category {
 
 sub _check_level {
     my ($level, $from) = @_;
-    $level =~ /^(fatal|error|warn|info|debug|trace)$/i or die "Unknown level (from $from): $level";
+    $level =~ /^(off|fatal|error|warn|info|debug|trace)$/i or die "Unknown level (from $from): $level";
     lc($1);
 }
 
@@ -545,7 +553,7 @@ sub _find_level {
 # return the higher level (e.g. _max_level("debug", "INFO") -> INFO
 sub _max_level {
     my ($l1, $l2) = @_;
-    my %vals = (FATAL=>1, ERROR=>2, WARN=>3, INFO=>4, DEBUG=>5, TRACE=>6);
+    my %vals = (OFF=>0, FATAL=>1, ERROR=>2, WARN=>3, INFO=>4, DEBUG=>5, TRACE=>6);
     $vals{uc($l1)} > $vals{uc($l2)} ? $l1 : $l2;
 }
 
@@ -586,7 +594,7 @@ Log::Any::App - A simple wrapper for Log::Any + Log::Log4perl for use in applica
 
 =head1 VERSION
 
-version 0.11
+version 0.13
 
 =head1 SYNOPSIS
 
@@ -668,6 +676,7 @@ or:
  use Log::Any::App '$log';
  BEGIN {
      $Log_Level = 'fatal'; # setting to fatal
+     $Log_Level = 'off';   # setting to off
      # $Quiet = 1;         # another way, setting to error
      # $Log_Level= 'warn'; # setting to warn, default
      # $Verbose = 1;       # another way, setting to info
@@ -678,7 +687,8 @@ or:
 or from environment variable:
 
  LOG_LEVEL=fatal yourprogram.pl;   # setting level to fatal
- QUIET=1 yourproogram.pl;          # another way, setting to error
+ LOG_LEVEL=off yourprogram.pl;     # setting level to off
+ QUIET=1 yourprogram.pl;           # another way, setting to error
  LOG_LEVEL=warn yourprogram.pl;    # setting level to warn, default
  VERBOSE=1 yourprogram.pl;         # another way, setting to info
  DEBUG=1 yourprogram.pl;           # another way, setting to debug

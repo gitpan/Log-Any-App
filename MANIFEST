@@ -5,7 +5,6 @@ META.yml
 README
 dist.ini
 lib/Log/Any/App.pm
-t/load.t
-t/pod.t
+t/00-compile.t
 t/release-pod-coverage.t
 t/release-pod-syntax.t

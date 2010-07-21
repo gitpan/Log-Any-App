@@ -3,7 +3,7 @@ NAME
     applications
 
 VERSION
-    version 0.11
+    version 0.13
 
 SYNOPSIS
         # in your script/application
@@ -81,6 +81,7 @@ USING
      use Log::Any::App '$log';
      BEGIN {
          $Log_Level = 'fatal'; # setting to fatal
+         $Log_Level = 'off';   # setting to off
          # $Quiet = 1;         # another way, setting to error
          # $Log_Level= 'warn'; # setting to warn, default
          # $Verbose = 1;       # another way, setting to info
@@ -91,7 +92,8 @@ USING
     or from environment variable:
 
      LOG_LEVEL=fatal yourprogram.pl;   # setting level to fatal
-     QUIET=1 yourproogram.pl;          # another way, setting to error
+     LOG_LEVEL=off yourprogram.pl;     # setting level to off
+     QUIET=1 yourprogram.pl;           # another way, setting to error
      LOG_LEVEL=warn yourprogram.pl;    # setting level to warn, default
      VERBOSE=1 yourprogram.pl;         # another way, setting to info
      DEBUG=1 yourprogram.pl;           # another way, setting to debug

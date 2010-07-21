@@ -1,5 +1,12 @@
 Revision history for Log-Any-App
 
+0.13     2010-07-21
+         - Allow turning off each facility via FILE_LOG_LEVEL=off,
+           SCREEN_LOG_LEVEL=off, and so on.
+
+0.12     2010-05-07
+         - Switch to DZP::AutoPrereq (but DZP::MinimumPerl failed)
+
 0.11     2010-05-07
          - Require Perl 5.10
 
