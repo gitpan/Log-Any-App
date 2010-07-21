@@ -1,5 +1,8 @@
 Revision history for Log-Any-App
 
+0.14     2010-07-21
+         - Adjust unit for FileRotate (not MB but bytes).
+
 0.13     2010-07-21
          - Allow turning off each facility via FILE_LOG_LEVEL=off,
            SCREEN_LOG_LEVEL=off, and so on.

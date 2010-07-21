@@ -1,6 +1,6 @@
 package Log::Any::App;
 BEGIN {
-  $Log::Any::App::VERSION = '0.13';
+  $Log::Any::App::VERSION = '0.14';
 }
 # ABSTRACT: A simple wrapper for Log::Any + Log::Log4perl for use in applications
 
@@ -94,7 +94,7 @@ sub _init_log4perl {
             "log4perl.appender.$a = Log::Dispatch::FileRotate\n",
             "log4perl.appender.$a.mode = append\n",
             "log4perl.appender.$a.filename = $_->{path}\n",
-            ($_->{max_size} ? "log4perl.appender.$a.size = " . ($_->{max_size}/1024/1024) . "\n" : ""),
+            ($_->{max_size} ? "log4perl.appender.$a.size = " . ($_->{max_size}) . "\n" : ""),
             ($_->{histories} ? "log4perl.appender.$a.max = " . ($_->{histories}+1) . "\n" : ""),
             "log4perl.appender.$a.layout = PatternLayout\n",
             "log4perl.appender.$a.layout.ConversionPattern = $_->{pattern}\n",
@@ -594,7 +594,7 @@ Log::Any::App - A simple wrapper for Log::Any + Log::Log4perl for use in applica
 
 =head1 VERSION
 
-version 0.13
+version 0.14
 
 =head1 SYNOPSIS
 
