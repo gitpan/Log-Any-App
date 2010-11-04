@@ -3,7 +3,7 @@ NAME
     applications
 
 VERSION
-    version 0.14
+    version 0.15
 
 SYNOPSIS
         # in your script/application
@@ -401,7 +401,7 @@ SEE ALSO
     Log::Log4perl
 
 AUTHOR
-      Steven Haryanto <stevenharyanto@gmail.com>
+    Steven Haryanto <stevenharyanto@gmail.com>
 
 COPYRIGHT AND LICENSE
     This software is copyright (c) 2010 by Steven Haryanto.

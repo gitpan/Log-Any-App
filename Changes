@@ -1,7 +1,10 @@
 Revision history for Log-Any-App
 
+0.15     2010-11-04
+         - Fixed: Setting per-target level.
+
 0.14     2010-07-21
-         - Adjust unit for FileRotate (not MB but bytes).
+         - Fixed: Unit for FileRotate max_size is not in MB but bytes.
 
 0.13     2010-07-21
          - Allow turning off each facility via FILE_LOG_LEVEL=off,

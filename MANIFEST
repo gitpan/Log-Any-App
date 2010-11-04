@@ -1,6 +1,8 @@
+Build.PL
 Changes
 LICENSE
 MANIFEST
+MANIFEST.SKIP
 META.yml
 README
 dist.ini

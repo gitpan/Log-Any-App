@@ -4,6 +4,7 @@ use warnings;
 
 use Module::Build 0.3601;
 
+
 my %module_build_args = (
   'build_requires' => {
     'File::Find' => '0',
@@ -19,10 +20,11 @@ my %module_build_args = (
     'Steven Haryanto <stevenharyanto@gmail.com>'
   ],
   'dist_name' => 'Log-Any-App',
-  'dist_version' => '0.14',
+  'dist_version' => '0.15',
   'license' => 'perl',
   'module_name' => 'Log::Any::App',
   'recommends' => {},
+  'recursive_test_files' => 1,
   'requires' => {
     'Data::Dumper' => '0',
     'File::HomeDir' => '0',

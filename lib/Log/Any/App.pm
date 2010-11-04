@@ -1,6 +1,6 @@
 package Log::Any::App;
 BEGIN {
-  $Log::Any::App::VERSION = '0.14';
+  $Log::Any::App::VERSION = '0.15';
 }
 # ABSTRACT: A simple wrapper for Log::Any + Log::Log4perl for use in applications
 
@@ -276,7 +276,7 @@ sub _is_daemon {
 
 sub _default_file {
     my ($spec) = @_;
-    my $level = _find_level("file");
+    my $level = _find_level("file", "file");
     if (!$level) {
         $level = $spec->{level};
         _debug("Setting level of file to general level ($level)");
@@ -322,7 +322,7 @@ sub _parse_opt_file {
 
 sub _default_dir {
     my ($spec) = @_;
-    my $level = _find_level("dir");
+    my $level = _find_level("dir", "dir");
     if (!$level) {
         $level = $spec->{level};
         _debug("Setting level of dir to general level ($level)");
@@ -370,7 +370,7 @@ sub _parse_opt_dir {
 
 sub _default_screen {
     my ($spec) = @_;
-    my $level = _find_level("screen");
+    my $level = _find_level("screen", "screen");
     if (!$level) {
         $level = $spec->{level};
         _debug("Setting level of screen to general level ($level)");
@@ -406,7 +406,7 @@ sub _parse_opt_screen {
 
 sub _default_syslog {
     my ($spec) = @_;
-    my $level = _find_level("syslog");
+    my $level = _find_level("syslog", "syslog");
     if (!$level) {
         $level = $spec->{level};
         _debug("Setting level of syslog to general level ($level)");
@@ -594,7 +594,7 @@ Log::Any::App - A simple wrapper for Log::Any + Log::Log4perl for use in applica
 
 =head1 VERSION
 
-version 0.14
+version 0.15
 
 =head1 SYNOPSIS
 
@@ -1028,7 +1028,7 @@ L<Log::Log4perl>
 
 =head1 AUTHOR
 
-  Steven Haryanto <stevenharyanto@gmail.com>
+Steven Haryanto <stevenharyanto@gmail.com>
 
 =head1 COPYRIGHT AND LICENSE
 

@@ -9,13 +9,13 @@ build_requires:
   Test::More: 0
 configure_requires:
   Module::Build: 0.3601
-generated_by: 'Dist::Zilla version 2.101241'
+dynamic_config: 0
+generated_by: 'Dist::Zilla version 4.102340, CPAN::Meta::Converter version 2.102400'
 license: perl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
   version: 1.4
 name: Log-Any-App
-recommends: {}
 requires:
   Data::Dumper: 0
   File::HomeDir: 0
@@ -29,6 +29,6 @@ requires:
   Log::Log4perl: 0
   perl: 5.010
 resources:
-  homepage: http://search.cpan.org/dist/perl-Log-Any-App/
+  homepage: http://search.cpan.org/dist/Log-Any-App/
   repository: http://github.com/sharyanto/perl-Log-Any-App
-version: 0.14
+version: 0.15
