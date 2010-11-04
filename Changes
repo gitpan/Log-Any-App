@@ -1,5 +1,9 @@
 Revision history for Log-Any-App
 
+0.16     2010-11-04
+         - More detailed debugging under LOGANYAPP_DEBUG.
+         - Doc: some more examples.
+
 0.15     2010-11-04
          - Fixed: Setting per-target level.
 

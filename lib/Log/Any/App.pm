@@ -1,6 +1,6 @@
 package Log::Any::App;
 BEGIN {
-  $Log::Any::App::VERSION = '0.15';
+  $Log::Any::App::VERSION = '0.16';
 }
 # ABSTRACT: A simple wrapper for Log::Any + Log::Log4perl for use in applications
 
@@ -205,7 +205,7 @@ sub _parse_opts {
         $i++;
     }
 
-    $spec->{level} = _find_level("", "");
+    $spec->{level} = _set_level("", "");
     if (!$spec->{level} && defined($opts{level})) {
         $spec->{level} = _check_level($opts{level}, "-level");
         _debug("Setting general level to $spec->{level} (from -level)");
@@ -276,7 +276,7 @@ sub _is_daemon {
 
 sub _default_file {
     my ($spec) = @_;
-    my $level = _find_level("file", "file");
+    my $level = _set_level("file", "file");
     if (!$level) {
         $level = $spec->{level};
         _debug("Setting level of file to general level ($level)");
@@ -322,7 +322,7 @@ sub _parse_opt_file {
 
 sub _default_dir {
     my ($spec) = @_;
-    my $level = _find_level("dir", "dir");
+    my $level = _set_level("dir", "dir");
     if (!$level) {
         $level = $spec->{level};
         _debug("Setting level of dir to general level ($level)");
@@ -370,7 +370,7 @@ sub _parse_opt_dir {
 
 sub _default_screen {
     my ($spec) = @_;
-    my $level = _find_level("screen", "screen");
+    my $level = _set_level("screen", "screen");
     if (!$level) {
         $level = $spec->{level};
         _debug("Setting level of screen to general level ($level)");
@@ -406,7 +406,7 @@ sub _parse_opt_screen {
 
 sub _default_syslog {
     my ($spec) = @_;
-    my $level = _find_level("syslog", "syslog");
+    my $level = _set_level("syslog", "syslog");
     if (!$level) {
         $level = $spec->{level};
         _debug("Setting level of syslog to general level ($level)");
@@ -464,14 +464,13 @@ sub _check_level {
     lc($1);
 }
 
-sub _find_level {
+sub _set_level {
     my ($prefix, $which) = @_;
     my $p_ = $prefix ? "${prefix}_" : "";
     my $P_ = $prefix ? uc("${prefix}_") : "";
     my $F_ = $prefix ? ucfirst("${prefix}_") : "";
     my $pd = $prefix ? "${prefix}-" : "";
     my $pr = $prefix ? qr/$prefix(_|-)/ : qr//;
-    my $key;
     my ($level, $from);
 
     my @label2level =([trace=>"trace"], [debug=>"debug"], [verbose=>"info"], [quiet=>"error"]);
@@ -479,15 +478,20 @@ sub _find_level {
   FIND:
     {
         if ($INC{"App/Options.pm"}) {
+            my $key;
             for (qw/log_level loglevel/) {
-                if ($App::options{$key = $p_ . $_}) {
+                $key = $p_ . $_;
+                _debug("Checking \$App::options{$key}: ", ($App::options{$key} // "(undef)"));
+                if ($App::options{$key}) {
                     $level = _check_level($App::options{$key}, "\$App::options{$key}");
                     $from = "\$App::options{$key}";
                     last FIND;
                 }
             }
             for (@label2level) {
-                if ($App::options{$key = $p_ . $_->[0]}) {
+                $key = $p_ . $_->[0];
+                _debug("Checking \$App::options{$key}: ", ($App::options{$key} // "(undef)"));
+                if ($App::options{$key}) {
                     $level = $_->[1];
                     $from = "\$App::options{$key}";
                     last FIND;
@@ -496,15 +500,23 @@ sub _find_level {
         }
 
         my $i = 0;
+        _debug("Checking \@ARGV ...");
         while ($i < @ARGV) {
             my $arg = $ARGV[$i];
             $from = "cmdline arg $arg";
-            do { $level = _check_level($1, "ARGV $arg"); last FIND }
-                if $arg =~ /^--${pr}log[_-]?level=(.+)/;
-            do { $level = _check_level($ARGV[$i+1], "ARGV $arg ".$ARGV[$i+1]); last FIND }
-                if $arg =~ /^--${pr}log[_-]?level$/ and $i < @ARGV-1;
+            if ($arg =~ /^--${pr}log[_-]?level=(.+)/) {
+                _debug("\$ARGV[$i] looks like an option to specify level: $arg");
+                $level = _check_level($1, "ARGV $arg");
+                last FIND;
+            }
+            if ($arg =~ /^--${pr}log[_-]?level$/ and $i < @ARGV-1) {
+                _debug("\$ARGV[$i] and \$ARGV[${\($i+1)}] looks like an option to specify level: $arg ", $ARGV[$i+1]);
+                $level = _check_level($ARGV[$i+1], "ARGV $arg ".$ARGV[$i+1]);
+                last FIND;
+            }
             for (@label2level) {
                 if ($arg =~ /^--${pr}$_->[0](=(1|yes|true))?$/i) {
+                    _debug("\$ARGV[$i] looks like an option to specify level: $arg");
                     $level = $_->[1];
                     last FIND;
                 }
@@ -513,14 +525,18 @@ sub _find_level {
         }
 
         for (qw/LOG_LEVEL LOGLEVEL/) {
-            if ($ENV{$key = $P_ . $_}) {
+            my $key = $P_ . $_;
+            _debug("Checking environment variable $key: ", ($ENV{$key} // "(undef)"));
+            if ($ENV{$key}) {
                 $level = _check_level($ENV{$key}, "ENV $key");
                 $from = "\$ENV{$key}";
                 last FIND;
             }
         }
         for (@label2level) {
-            if ($ENV{$key = $P_ . uc($_->[0])}) {
+            my $key = $P_ . uc($_->[0]);
+            _debug("Checking environment variable $key: ", ($ENV{$key} // "(undef)"));
+            if ($ENV{$key}) {
                 $level = $_->[1];
                 $from = "\$ENV{$key}";
                 last FIND;
@@ -530,18 +546,24 @@ sub _find_level {
         no strict 'refs';
         for ("${F_}Log_Level", "${P_}LOG_LEVEL", "${p_}log_level",
              "${F_}LogLevel",  "${P_}LOGLEVEL",  "${p_}loglevel") {
-            if (($key = "main::$_") && $$key) {
-                $from = "\$$key";
-                $level = _check_level($$key, "\$$key");
+            my $varname = "main::$_";
+            _debug("Checking variable \$$varname: ", ($$varname // "(undef)"));
+            if ($$varname) {
+                $from = "\$$varname";
+                $level = _check_level($$varname, "\$$varname");
                 last FIND;
             }
         }
         for (@label2level) {
-            if (($key = "main::$F_" . ucfirst($_->[0])) && $$key ||
-                ($key = "main::$P_" . uc($_->[0])) && $$key) {
-                $from = "\$$key";
-                $level = $_->[1];
-                last FIND;
+            for my $varname (
+                "main::$F_" . ucfirst($_->[0]),
+                "main::$P_" . uc($_->[0])) {
+                _debug("Checking variable \$$varname: ", ($$varname // "(undef)"));
+                if ($$varname) {
+                    $from = "\$$varname";
+                    $level = $_->[1];
+                    last FIND;
+                }
             }
         }
     }
@@ -594,7 +616,7 @@ Log::Any::App - A simple wrapper for Log::Any + Log::Log4perl for use in applica
 
 =head1 VERSION
 
-version 0.15
+version 0.16
 
 =head1 SYNOPSIS
 
@@ -650,7 +672,7 @@ I mostly use Log::Any;:App in scripts and one-liners whenever there
 are Log::Any-using modules involved (like L<Data::Schema> or
 L<Config::Tree>).
 
-=head1 USING
+=head1 USING AND EXAMPLES
 
 Most of the time you just need to do this from command line:
 
@@ -709,6 +731,15 @@ If you want to add a second file with a different level and category:
 If you want to turn off screen logging:
 
  use Log::Any::App -screen => 0;
+
+Or, to turn screen logging off but allow environment and command line to
+override/enable it later, you can do:
+
+ use Log::Any::App;
+ BEGIN { $Screen_Log_Level = 'off' }
+
+If you then want to enable screen logging temporarily, you can call the script
+with --screen-log-level=debug or set environment SCREEN_VERBOSE=1, etc.
 
 Logging to syslog is enabled by default if your script looks like a
 daemon, e.g.:

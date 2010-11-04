@@ -3,7 +3,7 @@ NAME
     applications
 
 VERSION
-    version 0.15
+    version 0.16
 
 SYNOPSIS
         # in your script/application
@@ -56,7 +56,7 @@ DESCRIPTION
     I mostly use Log::Any;:App in scripts and one-liners whenever there are
     Log::Any-using modules involved (like Data::Schema or Config::Tree).
 
-USING
+USING AND EXAMPLES
     Most of the time you just need to do this from command line:
 
      % perl -MLog::Any::App -MModuleThatUsesLogAny -e ...
@@ -114,6 +114,16 @@ USING
     If you want to turn off screen logging:
 
      use Log::Any::App -screen => 0;
+
+    Or, to turn screen logging off but allow environment and command line to
+    override/enable it later, you can do:
+
+     use Log::Any::App;
+     BEGIN { $Screen_Log_Level = 'off' }
+
+    If you then want to enable screen logging temporarily, you can call the
+    script with --screen-log-level=debug or set environment
+    SCREEN_VERBOSE=1, etc.
 
     Logging to syslog is enabled by default if your script looks like a
     daemon, e.g.:
