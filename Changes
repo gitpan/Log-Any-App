@@ -1,5 +1,9 @@
 Revision history for Log-Any-App
 
+0.17     2010-11-06
+         - Doc updates.
+         - Respect environment COLOR=0/1 to disable/enable screen color.
+
 0.16     2010-11-04
          - More detailed debugging under LOGANYAPP_DEBUG.
          - Doc: some more examples.

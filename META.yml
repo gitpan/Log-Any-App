@@ -31,4 +31,4 @@ requires:
 resources:
   homepage: http://search.cpan.org/dist/Log-Any-App/
   repository: http://github.com/sharyanto/perl-Log-Any-App
-version: 0.16
+version: 0.17

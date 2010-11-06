@@ -1,6 +1,6 @@
 package Log::Any::App;
 BEGIN {
-  $Log::Any::App::VERSION = '0.16';
+  $Log::Any::App::VERSION = '0.17';
 }
 # ABSTRACT: A simple wrapper for Log::Any + Log::Log4perl for use in applications
 
@@ -376,7 +376,7 @@ sub _default_screen {
         _debug("Setting level of screen to general level ($level)");
     }
     return {
-        color => (-t STDOUT),
+        color => $ENV{COLOR} // (-t STDOUT),
         stderr => 1,
         level => $level,
         category => '',
@@ -616,7 +616,7 @@ Log::Any::App - A simple wrapper for Log::Any + Log::Log4perl for use in applica
 
 =head1 VERSION
 
-version 0.16
+version 0.17
 
 =head1 SYNOPSIS
 
@@ -774,19 +774,18 @@ Arguments to init can be one or more of:
 
 =item -init => BOOL
 
-Default is true. You can set this to false, and you can initialize
-Log4perl yourself (but then there's not much point in using this
-module, right?)
+Whether to call Log::Log4perl->init() after setting up the Log4perl
+configuration. Default is true. You can set this to false, and you can initialize
+Log4perl yourself (but then there's not much point in using this module, right?)
 
 =item -name => STRING
 
 Change the program name. Default is taken from $0.
 
-=item -level => 'debug'|'warn'|...
+=item -level => 'trace'|'debug'|'info'|'warn'|'error'|'fatal'|'off'
 
-Specify log level for all outputs, e.g. C<warn>, C<debug>, etc. Each
-output can override this value. The default log level is determined as
-follow:
+Specify log level for all outputs. Each output can override this value. The
+default log level is determined as follow:
 
 If L<App::Options> is present, these keys are checked in
 B<%App::options>: B<log_level>, B<trace> (if true then level is
@@ -910,6 +909,9 @@ variables in main are also searched first (for B<SCREEN_LOG_LEVEL>,
 B<SCREEN_TRACE>, B<SCREEN_DEBUG>, B<SCREEN_VERBOSE>, B<SCREEN_QUIET>,
 and the similars).
 
+Color can also be turned on/off using environment variable COLOR (if B<color>
+argument is not set).
+
 =item -syslog => 0 | 1|yes|true | {opts}
 
 Log messages using L<Log::Dispatch::Syslog>.
@@ -1029,11 +1031,11 @@ Users of your modules can still use Log::Dispatch or some other
 adapter if they want to. You are not forcing your module users to use
 Log4perl.
 
-Btw, I'm actually fine with a Log4perl-only world. It's just that
-(currently) you need to explicitly initialize Log4perl so this might
-irritate my users if I use Log4perl in my modules. Log::Any's default
-is the nice 'null' logging so my users don't need to be aware of
-logging at all.
+Btw, I'm actually fine with a Log4perl-only world. It's just that (currently) you
+need to explicitly initialize Log4perl so this might irritate my users if I use
+Log4perl in my modules. Log::Any's default is the nice 'null' logging so my users
+don't need to be aware of logging at all. And Log::Any also provides some other
+convenience, e.g. debugf() et al which can dump data structures,
 
 =head2 How do I create extra logger objects?
 
@@ -1041,11 +1043,34 @@ The usual way as with Log::Any:
 
  my $other_log = Log::Any->get_logger(category => $category);
 
+=head2 How do I set default level for certain output, but allow this to be overriden in environment/command line?
+
+If you set level as an argument to init, i.e.:
+
+ use Log::Any::App -screen => {level=>'off'};
+
+then you will not be able to override this via environment/command line, because
+init argument takes precedence. However, if yo do this:
+
+ use Log::Any::App; # screen log level is default
+ BEGIN { our $Screen_Log_Level = 'off' }
+
+then you will be able to override the screen log level using environment
+SCREEN_LOG_LEVEL (or SCREEN_DEBUG=1, and so on) or command-line
+--screen-log-level (or --screen-debug, and so on).
+
 =head2 How do I see the Log4perl configuration that gets used?
 
 Set environment LOGANYAPP_DEBUG to true, and Log::Any::App will dump
 the Log4perl configuration as well as additional messages to help you
 trace how it came up to be.
+
+=head2 My needs are not met by the simple configuration system of Log::Any::App!
+
+You can use Log4perl adapter directly and write your own Log4perl configuration.
+Log::Any::App is meant for quick and simple logging output needs anyway (but do
+tell me if your logging output needs are reasonably simple and should be
+supported by Log::Any::App).
 
 =head1 BUGS/TODOS
 

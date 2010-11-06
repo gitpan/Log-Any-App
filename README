@@ -3,7 +3,7 @@ NAME
     applications
 
 VERSION
-    version 0.16
+    version 0.17
 
 SYNOPSIS
         # in your script/application
@@ -152,17 +152,17 @@ FUNCTIONS
     Arguments to init can be one or more of:
 
     -init => BOOL
-        Default is true. You can set this to false, and you can initialize
-        Log4perl yourself (but then there's not much point in using this
-        module, right?)
+        Whether to call Log::Log4perl->init() after setting up the Log4perl
+        configuration. Default is true. You can set this to false, and you
+        can initialize Log4perl yourself (but then there's not much point in
+        using this module, right?)
 
     -name => STRING
         Change the program name. Default is taken from $0.
 
-    -level => 'debug'|'warn'|...
-        Specify log level for all outputs, e.g. "warn", "debug", etc. Each
-        output can override this value. The default log level is determined
-        as follow:
+    -level => 'trace'|'debug'|'info'|'warn'|'error'|'fatal'|'off'
+        Specify log level for all outputs. Each output can override this
+        value. The default log level is determined as follow:
 
         If App::Options is present, these keys are checked in %App::options:
         log_level, trace (if true then level is "trace"), debug (if true
@@ -279,6 +279,9 @@ FUNCTIONS
         SCREEN_TRACE, SCREEN_DEBUG, SCREEN_VERBOSE, SCREEN_QUIET, and the
         similars).
 
+        Color can also be turned on/off using environment variable COLOR (if
+        color argument is not set).
+
     -syslog => 0 | 1|yes|true | {opts}
         Log messages using Log::Dispatch::Syslog.
 
@@ -390,17 +393,39 @@ FAQ
     (currently) you need to explicitly initialize Log4perl so this might
     irritate my users if I use Log4perl in my modules. Log::Any's default is
     the nice 'null' logging so my users don't need to be aware of logging at
-    all.
+    all. And Log::Any also provides some other convenience, e.g. debugf() et
+    al which can dump data structures,
 
   How do I create extra logger objects?
     The usual way as with Log::Any:
 
      my $other_log = Log::Any->get_logger(category => $category);
 
+  How do I set default level for certain output, but allow this to be overriden in environment/command line?
+    If you set level as an argument to init, i.e.:
+
+     use Log::Any::App -screen => {level=>'off'};
+
+    then you will not be able to override this via environment/command line,
+    because init argument takes precedence. However, if yo do this:
+
+     use Log::Any::App; # screen log level is default
+     BEGIN { our $Screen_Log_Level = 'off' }
+
+    then you will be able to override the screen log level using environment
+    SCREEN_LOG_LEVEL (or SCREEN_DEBUG=1, and so on) or command-line
+    --screen-log-level (or --screen-debug, and so on).
+
   How do I see the Log4perl configuration that gets used?
     Set environment LOGANYAPP_DEBUG to true, and Log::Any::App will dump the
     Log4perl configuration as well as additional messages to help you trace
     how it came up to be.
+
+  My needs are not met by the simple configuration system of Log::Any::App!
+    You can use Log4perl adapter directly and write your own Log4perl
+    configuration. Log::Any::App is meant for quick and simple logging
+    output needs anyway (but do tell me if your logging output needs are
+    reasonably simple and should be supported by Log::Any::App).
 
 BUGS/TODOS
     Need to provide appropriate defaults for Windows/other OS.
