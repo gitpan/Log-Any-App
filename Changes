@@ -1,5 +1,11 @@
 Revision history for Log-Any-App
 
+0.18     2010-11-07
+         - New: '-category_alias' option
+         - New: 'category_level' option
+         - New: 'category' in output spec now accepts array
+         - Doc: Rewritten usage & examples section
+
 0.17     2010-11-06
          - Doc updates.
          - Respect environment COLOR=0/1 to disable/enable screen color.

@@ -1,9 +1,8 @@
 NAME
-    Log::Any::App - A simple wrapper for Log::Any + Log::Log4perl for use in
-    applications
+    Log::Any::App - An easy way to use Log::Any in applications
 
 VERSION
-    version 0.17
+    version 0.18
 
 SYNOPSIS
         # in your script/application
@@ -17,14 +16,14 @@ DESCRIPTION
 
      use Log::Any qw($log);
 
-    and you're off logging with $log->debug(), $log->info(), $log->error(),
-    etc. That's it. The task of initializing and configuring the logger
-    rests on the shoulder of module users.
+    and you're off producing logs with $log->debug(), $log->info(),
+    $log->error(), etc. That's it. The task of consuming logs (setting up
+    each output, deciding which messages gets to which output, etc) rests on
+    the shoulder of module users.
 
-    It's less straightforward for module users though, especially for casual
-    ones. You have to pick an adapter and connect it to another logging
-    framework (like Log::Log4perl) and configure it. The typical incantation
-    is like this:
+    Life is not equally easy for the module users (or application authors)
+    though. The typical incantation to consume logs (assuming we use the
+    Log::Log4perl adapter) is:
 
      use Log::Any qw($log);
      use Log::Any::Adapter;
@@ -39,8 +38,8 @@ DESCRIPTION
 
     Frankly, I couldn't possibly remember all that (especially the details
     of Log4perl configuration), hence Log::Any::App. The goal of
-    Log::Any::App is to make life equally easy for application authors and
-    module users. All you need to do is:
+    Log::Any::App is to make life equally easy for log consumers. All you
+    need to do is:
 
      use Log::Any::App qw($log);
 
@@ -53,78 +52,145 @@ DESCRIPTION
     need to configure anything as Log::Any::App will construct the most
     appropriate default Log4perl config for your application.
 
-    I mostly use Log::Any;:App in scripts and one-liners whenever there are
-    Log::Any-using modules involved (like Data::Schema or Config::Tree).
+    I mostly use Log::Any;:App in oneliners and simple to medium scripts
+    whenever I have to use Log::Any-using modules (for example: Data::Schema
+    and Config::Tree).
 
 USING AND EXAMPLES
-    Most of the time you just need to do this from command line:
+    Using Log::Any::App is very easy. Most of the time you just need to do
+    this from command line:
 
      % perl -MLog::Any::App -MModuleThatUsesLogAny -e ...
 
     or from a script:
 
-     use Log::Any::App qw($log);
+     use ModuleThatUsesLogAny;
+     use Log::Any::App '$log';
 
-    this will send logs to screen as well as file (~/$NAME.log or
-    /var/log/$NAME.log if running as root). One-liners by default do not log
-    to file. $NAME will be taken from $0, but can be changed using:
+    This will send logs to screen as well as file (~/$SCRIPT_NAME.log or
+    /var/log/$SCRIPT_NAME.log if running as root, command-line scripts by
+    default do not log to file) with the default level of 'warn'. This means
+    $log->error("foo") will display, while $log->info("bar") will not.
 
-     use Log::Any::App '$log', -name => 'myprog';
+    The 'use Log::Any::App' statement can be issued before or after the
+    modules that use Log::Any, it doesn't matter. Logging will be
+    initialized in the INIT phase.
 
-    Default level is 'warn', but can be changed in several ways. From the
-    code:
+  Changing logging level
+    Changing logging level can be done from the script or outside the
+    script. From the script:
 
      use Log::Any::App '$log', -level => 'debug';
 
-    or:
+    but oftentimes what you want is changing level without modifying the
+    script itself. So leave it to Log::Any::App to determine level:
+
+     use Log::Any::App '$log';
+
+    and then you can use environment variable:
+
+     TRACE=1 script.pl;       # setting level to trace
+     DEBUG=1 script.pl;       # setting level to debug
+     VERBOSE=1 script.pl;     # setting level to info
+     QUIET=1 script.pl;       # setting level to error
+     LOG_LEVEL=... script.pl; # setting a specific log level
+
+    or command-line options:
+
+     script.pl --trace
+     script.pl --debug
+     script.pl --verbose
+     script.pl --quiet
+     script.pl --log_level=debug;   # '--log-level debug' will also do
+
+    Log::Any::App won't interfere with command-line processing modules like
+    Getopt::Long or App::Options.
+
+  Changing default level
+    The default log level is 'warn'. You can change this using:
+
+     use Log::Any::App '$log';
+     BEGIN { our $Log_Level = 'info' }
+
+    and then you can still use environment or command-line options to
+    override the setting.
+
+  Changing per-output level
+    Logging level can also be specified on a per-output level. For example,
+    if you want your script to be chatty on the screen but still logs to
+    file at the default 'warn' level:
+
+     SCREEN_VERBOSE=1 script.pl
+     SCREEN_DEBUG=1 script.pl
+     SCREEN_TRACE=1 script.pl
+     SCREEN_LOG_LEVEL=info script.pl
+
+     script.pl --screen_verbose
+     script.pl --screen-debug
+     script.pl --screen-trace=1
+     script.pl --screen-log-level=info
+     # and so on
+
+    Similarly, to set only file level, use FILE_VERBOSE, FILE_LOG_LEVEL,
+    --file-trace, etc.
+
+  Setting default per-output level
+    As with setting default level, you can also set default level on a
+    per-output basis:
 
      use Log::Any::App '$log';
      BEGIN {
-         $Log_Level = 'fatal'; # setting to fatal
-         $Log_Level = 'off';   # setting to off
-         # $Quiet = 1;         # another way, setting to error
-         # $Log_Level= 'warn'; # setting to warn, default
-         # $Verbose = 1;       # another way, setting to info
-         # $Debug = 1;         # another way, setting to debug
-         # $Trace = 1;         # another way, setting to trace
+         our $Screen_Log_Level = 'off';
+         our $File_Quiet = 1; # setting level to 'error'
+         # and so on
      }
 
-    or from environment variable:
+    If a per-output level is not specifed, it will default to the general
+    log level.
 
-     LOG_LEVEL=fatal yourprogram.pl;   # setting level to fatal
-     LOG_LEVEL=off yourprogram.pl;     # setting level to off
-     QUIET=1 yourprogram.pl;           # another way, setting to error
-     LOG_LEVEL=warn yourprogram.pl;    # setting level to warn, default
-     VERBOSE=1 yourprogram.pl;         # another way, setting to info
-     DEBUG=1 yourprogram.pl;           # another way, setting to debug
-     TRACE=1 yourprogram.pl;           # another way, setting to trace
+  Enabling/disabling output
+    To disable a certain output, you can do this:
 
-    or, from the command line options:
+     use Log::Any::App '$log', -file => 0;
 
-     yourprogram.pl --log-level debug
-     yourprogram.pl --debug
-     # and so on
+    or:
 
-    If you want to add a second file with a different level and category:
+     use Log::Any::App '$log', -screen => {level=>'off'};
 
-     use Log::Any::App '$log', -file => ['first.log',
-                                         {path=>'second.log', level=>'debug',
-                                          category=>'Some::Category'}];
-
-    If you want to turn off screen logging:
-
-     use Log::Any::App -screen => 0;
-
-    Or, to turn screen logging off but allow environment and command line to
-    override/enable it later, you can do:
+    and this won't allow it to be reenabled from outside the script. However
+    if you do this:
 
      use Log::Any::App;
-     BEGIN { $Screen_Log_Level = 'off' }
+     BEGIN { our $Screen_Log_Level = 'off' }
 
-    If you then want to enable screen logging temporarily, you can call the
-    script with --screen-log-level=debug or set environment
-    SCREEN_VERBOSE=1, etc.
+    then you will be able to override the screen log level using environment
+    or command-line options (SCREEN_DEBUG, --screen-verbose, and so on).
 
+  Changing log file name/location
+    By default Log::Any::App will use ~/$NAME.log (or /var/log/$NAME.log if
+    script is running as root), where $NAME taken from $0, but can be
+    changed using:
+
+     use Log::Any::App '$log', -name => 'myprog';
+
+    Or, using custom path:
+
+     use Log::Any::App '$log', -file => '/path/to/file';
+
+  Changing other output parameters
+    Each output argument can accept a hashref to specify various options.
+    For example:
+
+     use Log::Any::App '$log',
+         -screen => {color=>0},   # never use color
+         -file   => {path=>'/var/log/foo',
+                     rotate=>'10M',
+                     histories=>10,
+                    },
+
+    For all the available options of each output, see the init() function.
+
+  Logging to syslog
     Logging to syslog is enabled by default if your script looks like a
     daemon, e.g.:
 
@@ -135,7 +201,62 @@ USING AND EXAMPLES
 
      use Log::Any::App -syslog => 0;
 
-    For all the available options, see the init() function.
+  Logging to directory
+    This is done using Log::Dispatch::Dir where each log message is logged
+    to a different file in a specified directory. By default logging to dir
+    is not turned on, to turn it on:
+
+     use Log::Any::App '$log', -dir => 1;
+
+    For all the available options of directory output, see the init()
+    function.
+
+  Multiple outputs
+    Each output argument can accept an arrayref to specify more than one
+    output, example:
+
+     use Log::Any::App '$log',
+         -file => ["/var/log/log1",
+                   {path=>"/var/log/debug_foo", category=>'Foo', level=>'debug'}];
+
+  Changing level of a certain module
+    Suppose you want to shut up Foo, Bar::Baz, and Qux's logging because
+    they are too noisy:
+
+     use Log::Any::App '$log',
+         -category_level => { Foo => 'off', 'Bar::Baz' => 'off', Qux => 'off' };
+
+    or (same thing):
+
+     use Log::Any::App '$log',
+         -category_alias => { -noisy => [qw/Foo Bar::Baz Qux/] },
+         -category_level => { -noisy => 'off' };
+
+    You can even specify this on a per-output basis. Suppose you only want
+    to shut up the noisy modules on the screen, but not on the file:
+
+     use Log::Any::App '$log',
+        -category_alias => { -noisy => [qw/Foo Bar::Baz Qux/] },
+        -screen => { category_level => { -noisy => 'off' } };
+
+    Or perhaps, you want to shut up the noisy modules everywhere, except on
+    the screen:
+
+     use Log::Any::App '$log',
+         -category_alias => { -noisy => [qw/Foo Bar::Baz Qux/] },
+         -category_level => { -noisy => 'off' },
+         -syslog => 1,
+         -file   => "/var/log/foo",
+         -screen => { category_level => {} }; # do not do per-category level
+
+  Preventing logging level to be changed from outside the script
+    Sometimes, for security/audit reasons, you don't want to allow script
+    caller to change logging level. To do so, just specify the 'level'
+    option in the script during 'use' statement:
+
+  Debugging
+    To see the Log4perl configuration that is generated by Log::Any::App and
+    how it came to be, set environment LOGANYAPP_DEBUG to true.
 
 FUNCTIONS
   init(\@args)
@@ -159,6 +280,29 @@ FUNCTIONS
 
     -name => STRING
         Change the program name. Default is taken from $0.
+
+    -category_alias => {ALIAS=>CATEGORY, ...}
+        Create category aliases so the ALIAS can be used in place of real
+        categories in each output's category specification. For example,
+        instead of doing this:
+
+         init(
+             -file   => [category=>[qw/Foo Bar Baz/], ...],
+             -screen => [category=>[qw/Foo Bar Baz/]],
+         );
+
+        you can do this instead:
+
+         init(
+             -category_alias => {_fbb => [qw/Foo Bar Baz/]},
+             -file   => [category=>'-fbb', ...],
+             -screen => [category=>'-fbb', ...],
+         );
+
+    -category_level => {CATEGORY=>LEVEL, ...}
+        Specify per-category level. Categories not mentioned on this will
+        use the general level (-level). This can be used to increase or
+        decrease logging on certain categories/modules.
 
     -level => 'trace'|'debug'|'info'|'warn'|'error'|'fatal'|'off'
         Specify log level for all outputs. Each output can override this
@@ -196,8 +340,10 @@ FUNCTIONS
         hashref must be one of: "level", "path", "max_size" (maximum size
         before rotating, in bytes, 0 means unlimited or never rotate),
         "histories" (number of old files to keep, excluding the current
-        file), "category", "pattern_style" (see "PATTERN STYLES"), "pattern"
-        (Log4perl pattern).
+        file), "category" (a string of ref to array of strings),
+        "category_level" (a hashref, similar to -category_level),
+        "pattern_style" (see "PATTERN STYLES"), "pattern" (Log4perl
+        pattern).
 
         If the argument is an arrayref, it is assumed to be specifying
         multiple files, with each element of the array as a hashref.
@@ -233,7 +379,8 @@ FUNCTIONS
         before deleting older files, in bytes, 0 means unlimited), "max_age"
         (maximum age of files to keep, in seconds, undef means unlimited).
         "histories" (number of old files to keep, excluding the current
-        file), "category", "pattern_style" (see "PATTERN STYLES"), "pattern"
+        file), "category", "category_level" (a hashref, similar to
+        -category_level), "pattern_style" (see "PATTERN STYLES"), "pattern"
         (Log4perl pattern), "filename_pattern" (pattern of file name).
 
         If the argument is an arrayref, it is assumed to be specifying
@@ -266,8 +413,9 @@ FUNCTIONS
         settings. If the argument is a hashref, then the keys of the hashref
         must be one of: "color" (default is true, set to 0 to turn off
         color), "stderr" (default is true, set to 0 to log to stdout
-        instead), "level", "category", "pattern_style" (see "PATTERN
-        STYLE"), "pattern" (Log4perl string pattern).
+        instead), "level", "category", "category_level" (a hashref, similar
+        to -category_level), "pattern_style" (see "PATTERN STYLE"),
+        "pattern" (Log4perl string pattern).
 
         How Log::Any::App determines defaults for screen logging:
 
@@ -290,7 +438,8 @@ FUNCTIONS
         /^(1|yes|true)$/i, syslog logging will be turned on with default
         level, ident, etc. If the argument is a hashref, then the keys of
         the hashref must be one of: "level", "ident", "facility",
-        "category", "pattern_style" (see "PATTERN STYLES"), "pattern"
+        "category", "category_level" (a hashref, similar to
+        -category_level), "pattern_style" (see "PATTERN STYLES"), "pattern"
         (Log4perl pattern).
 
         How Log::Any::App determines defaults for syslog logging:
@@ -359,76 +508,53 @@ PATTERN STYLES
 
 FAQ
   What's the benefit of using Log::Any::App?
-    All of Log::Any and all of Log::Log4perl, as what Log::Any::App does is
-    just combine those two (and add a thin wrapper). You still produce log
-    with Log::Any so later should portions of your application code get
-    refactored into modules, you don't need to change the logging part.
+    You get all the benefits of Log::Any, as what Log::Any::App does is just
+    wrap Log::Any and Log::Log4perl with some nice defaults. It provides you
+    with an easy way to consume Log::Any logs and customize level/some other
+    options via various ways.
+
+    You still produce logs with Log::Any so later should portions of your
+    application code get refactored into modules, you don't need to change
+    the logging part. And if your application becomes more complex and
+    Log::Any::App doesn't suffice your custom logging needs anymore, you can
+    just replace 'use Log::Any::App' line with something more adequate.
+
+  And what's the benefit of using Log::Any?
+    This is better described in the Log::Any documentation itself, but in
+    short: Log::Any frees your module users to use whatever logging
+    framework they want. It increases the reusability of your modules.
 
   Do I need Log::Any::App if I am writing modules?
     No, if you write modules just use Log::Any.
 
-  Why Log4perl instead of Log::Dispatch?
-    You can use Log::Dispatch::* output modules in Log4perl but (currently)
-    not vice versa.
+  Why use Log4perl?
+    Log::Any::App uses the Log4perl adapter to display the logs because it
+    is mature, flexible, featureful. The other alternative adapter is
+    Log::Dispatch, but you can use Log::Dispatch::* output modules in
+    Log4perl and (currently) not vice versa.
 
-    You can configure Log4perl using a configuration file, so you can
-    conveniently store your settings separate from the application.
+    Other adapters might be considered in the future, for now I'm fairly
+    satisfied with Log4perl.
 
-    Feel free to fork Log::Any::App and use Log::Dispatch instead if you
-    don't like Log4perl.
-
-  Why not just use Log4perl then? Why bother with Log::Any at all? You're tied to Log4perl anyway.
-    Yes, combining Log::Any with Log4perl (or some other adapter) is
-    necessary to get output, but that's only in applications. Your
-    Log::Any-using modules are still not tied to any adapter.
-
-    The goal is to keep using Log::Any in your modules, and have a
-    convenient way of displaying your logs in your applications, without a
-    long incantation.
-
-    Users of your modules can still use Log::Dispatch or some other adapter
-    if they want to. You are not forcing your module users to use Log4perl.
-
-    Btw, I'm actually fine with a Log4perl-only world. It's just that
-    (currently) you need to explicitly initialize Log4perl so this might
-    irritate my users if I use Log4perl in my modules. Log::Any's default is
-    the nice 'null' logging so my users don't need to be aware of logging at
-    all. And Log::Any also provides some other convenience, e.g. debugf() et
-    al which can dump data structures,
+    Note that producing logs are still done with Log::Any as usual and not
+    tied to Log4perl in any way.
 
   How do I create extra logger objects?
     The usual way as with Log::Any:
 
      my $other_log = Log::Any->get_logger(category => $category);
 
-  How do I set default level for certain output, but allow this to be overriden in environment/command line?
-    If you set level as an argument to init, i.e.:
-
-     use Log::Any::App -screen => {level=>'off'};
-
-    then you will not be able to override this via environment/command line,
-    because init argument takes precedence. However, if yo do this:
-
-     use Log::Any::App; # screen log level is default
-     BEGIN { our $Screen_Log_Level = 'off' }
-
-    then you will be able to override the screen log level using environment
-    SCREEN_LOG_LEVEL (or SCREEN_DEBUG=1, and so on) or command-line
-    --screen-log-level (or --screen-debug, and so on).
-
-  How do I see the Log4perl configuration that gets used?
-    Set environment LOGANYAPP_DEBUG to true, and Log::Any::App will dump the
-    Log4perl configuration as well as additional messages to help you trace
-    how it came up to be.
-
   My needs are not met by the simple configuration system of Log::Any::App!
     You can use Log4perl adapter directly and write your own Log4perl
-    configuration. Log::Any::App is meant for quick and simple logging
-    output needs anyway (but do tell me if your logging output needs are
-    reasonably simple and should be supported by Log::Any::App).
+    configuration (or even other adapters). Log::Any::App is meant for quick
+    and simple logging output needs anyway (but do tell me if your logging
+    output needs are reasonably simple and should be supported by
+    Log::Any::App).
 
 BUGS/TODOS
     Need to provide appropriate defaults for Windows/other OS.
+
+    Probably: SCREEN0_DEBUG, --file1-log-level, etc.
 
 SEE ALSO
     Log::Any

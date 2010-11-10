@@ -1,8 +1,8 @@
 package Log::Any::App;
 BEGIN {
-  $Log::Any::App::VERSION = '0.17';
+  $Log::Any::App::VERSION = '0.18';
 }
-# ABSTRACT: A simple wrapper for Log::Any + Log::Log4perl for use in applications
+# ABSTRACT: An easy way to use Log::Any in applications
 
 
 use 5.010;
@@ -19,6 +19,8 @@ use Log::Log4perl;
 # use Log::Dispatch::Dir
 # use Log::Dispatch::FileRotate
 # use Log::Dispatch::Syslog
+
+use vars qw($dbg_ctx);
 
 my %PATTERN_STYLES = (
     plain             => '%m',
@@ -43,113 +45,192 @@ sub init {
     _init_log4perl($spec);
 }
 
+sub _gen_appender_config {
+    my ($ospec, $apd_name, $filter) = @_;
+
+    my $name = $ospec->{name};
+    my $class;
+    my $params = {};
+    if ($name =~ /^dir/i) {
+        $class = "Log::Dispatch::Dir";
+        $params->{dirname}   = $ospec->{path};
+        $params->{filename_pattern} = $ospec->{filename_pattern};
+        $params->{max_size}  = $ospec->{max_size} if $ospec->{max_size};
+        $params->{max_files} = $ospec->{histories}+1 if $ospec->{histories};
+        $params->{max_age}   = $ospec->{max_age} if $ospec->{max_age};
+    } elsif ($name =~ /^file/i) {
+        $class = "Log::Dispatch::FileRotate";
+        $params->{mode}  = 'append';
+        $params->{filename} = $ospec->{path};
+        $params->{size}  = $ospec->{size} if $ospec->{size};
+        $params->{max}   = $ospec->{histories}+1 if $ospec->{histories};
+    } elsif ($name =~ /^screen/i) {
+        $class = "Log::Log4perl::Appender::" .
+            ($ospec->{color} ? "ScreenColoredLevels" : "Screen");
+        $params->{stderr}  = $ospec->{stderr} ? 1:0;
+    } elsif ($name =~ /^syslog/i) {
+        $class = "Log::Dispatch::Syslog";
+        $params->{mode}     = 'append';
+        $params->{ident}    = $ospec->{ident};
+        $params->{facility} = $ospec->{facility};
+    } else {
+        die "BUG: Unknown appender type: $name";
+    }
+
+    join(
+        "",
+        "log4perl.appender.$apd_name = $class\n",
+        (map { "log4perl.appender.$apd_name.$_ = $params->{$_}\n" }
+             keys %$params),
+        "log4perl.appender.$apd_name.layout = PatternLayout\n",
+        "log4perl.appender.$apd_name.layout.ConversionPattern = $ospec->{pattern}\n",
+        ($filter ? "log4perl.appender.$apd_name.Filter = $filter\n" : ""),
+    );
+}
+
+sub _gen_l4p_config {
+    my ($config) = @_;
+
+    my $cats      = $config->{categories};
+    my %seen_appenders;
+
+    my $cats_str = '';
+    my $add_str  = '';
+    my $apd_str  = '';
+
+    for my $cat (sort {$a cmp $b} keys %$cats) {
+        $add_str .= "log4perl.additivity.$cat = 0\n" unless $cat eq '';
+        my $c = $cats->{$cat};
+        my $level = uc($c->{level});
+        my @apd = @{ $c->{appenders} };
+        my @apd_names;
+        for my $apd (@apd) {
+            next if $level eq 'OFF';
+            my $ospec = $apd->{ospec};
+            my $alevel = uc($apd->{level});
+            next if $alevel eq 'OFF';
+            my $filter = $alevel ne $level &&
+                _min_level($alevel, $level) eq $level ? "Filter$alevel" : "";
+            my $apd_name = $ospec->{name} .
+                ($filter ? "_$alevel" : "");
+            #print "D:cat=$cat, apd=$ospec->{name}, name=$apd_name, filter=$filter\n";
+            push @apd_names, $apd_name;
+            unless ($seen_appenders{$apd_name}++) {
+                $apd_str .= _gen_appender_config($ospec, $apd_name, $filter) . "\n";
+            }
+        }
+        my $l = $cat eq '' ? '' : ".$cat";
+        $cats_str .= "log4perl.logger$l = ".join(",", $level, @apd_names)."\n";
+    }
+
+    my $filters_str = join(
+        "",
+        #"log4perl.filter.FilterOFF = Log::Log4perl::Filter::LevelRange\n",
+        #"log4perl.filter.FilterOFF.LevelMin = DEBUG\n",
+        #"log4perl.filter.FilterOFF.LevelMax = FATAL\n",
+        #"log4perl.filter.FilterOFF.AcceptOnMatch = false\n",
+        #"\n",
+        map {join(
+            "",
+            "log4perl.filter.Filter$_ = Log::Log4perl::Filter::LevelRange\n",
+            "log4perl.filter.Filter$_.LevelMin = $_\n",
+            "log4perl.filter.Filter$_.LevelMax = FATAL\n",
+            "log4perl.filter.Filter$_.AcceptOnMatch = true\n",
+            "\n",
+        )} qw(FATAL ERROR WARN INFO DEBUG), # TRACE
+    );
+
+    join(
+        "",
+        "# filters\n", $filters_str,
+        "# categories\n", $cats_str, $add_str, "\n",
+        "# appenders\n", $apd_str,
+    );
+}
+
+sub _add_appenders_to_categories {
+    my ($config, $spec) = @_;
+
+    my $cats = $config->{categories};
+
+    for my $ospec (@{ $spec->{dir} },
+                   @{ $spec->{file} },
+                   @{ $spec->{screen} },
+                   @{ $spec->{syslog} }) {
+        my @ospec_cats = _extract_category($ospec);
+        if ($ospec->{category_level}) {
+            my %catlevels;
+            for my $cat0 (keys %{ $ospec->{category_level} }) {
+                my @cats = _extract_category($ospec, $cat0);
+                my $level = $ospec->{category_level}{$cat0};
+                for my $cat (@cats) {
+                    #print "D:(1)cat=$cat, name=$ospec->{name}, level=$level\n";
+                    $catlevels{$cat}++;
+                    $cats->{$cat} //= {appenders=>[], level => $level};
+                    push @{ $cats->{$cat}{appenders} },
+                        {ospec=>$ospec, level=>$level};
+                    $cats->{$cat}{level} = _min_level(
+                        $cats->{$cat}{level},
+                        $level
+                    );
+                }
+            }
+            for my $cat (@ospec_cats) {
+                next if $catlevels{$cat};
+                $cats->{$cat} //= {appenders=>[], level => $ospec->{level}};
+                #print "D:(2)cat=$cat, name=$ospec->{name}, level=$ospec->{level}\n";
+                push @{ $cats->{$cat}{appenders} },
+                    {ospec=>$ospec, level=>$ospec->{level}};
+                $cats->{$cat}{level} = _min_level(
+                    $cats->{$cat}{level},
+                    $ospec->{level}
+                );
+            }
+        } else {
+            for my $cat (@ospec_cats) {
+                $cats->{$cat} //= {appenders=>[], level => $ospec->{level}};
+                #print "D:(3)cat=$cat, name=$ospec->{name}, level=$ospec->{level}\n";
+                push @{ $cats->{$cat}{appenders} },
+                    {ospec=>$ospec, level=>$ospec->{level}};
+                $cats->{$cat}{level} = _min_level(
+                    $cats->{$cat}{level},
+                    $ospec->{level});
+            }
+        }
+    }
+}
+
 sub _init_log4perl {
     my ($spec) = @_;
 
     # create intermediate directories for dir
-    for (@{ $spec->{dirs} }) {
+    for (@{ $spec->{dir} }) {
         my $dir = _dirname($_->{path});
         make_path($dir) if length($dir) && !(-d $dir);
     }
 
     # create intermediate directories for file
-    for (@{ $spec->{files} }) {
+    for (@{ $spec->{file} }) {
         my $dir = _dirname($_->{path});
         make_path($dir) if length($dir) && !(-d $dir);
     }
 
-    my $config_appenders = '';
-    my %cats = ('' => {appenders => [], level => $spec->{level}});
-    my $i = 0;
-    for (@{ $spec->{dirs} }) {
-        my $cat = _format_category($_->{category});
-        my $a = "DIR" . ($i++);
-        $cats{$cat} ||= {appenders => [], level => $spec->{level}};
-        next if $_->{level} eq 'off';
-        $cats{$cat}{level} = _max_level($cats{$cat}{level}, $_->{level});
-        push @{ $cats{$cat}{appenders} }, $a;
-        $config_appenders .= join(
-            "",
-            "log4perl.appender.$a = Log::Dispatch::Dir\n",
-            "log4perl.appender.$a.dirname = $_->{path}\n",
-            "log4perl.appender.$a.filename_pattern = $_->{filename_pattern}\n",
-            ($_->{max_size} ? "log4perl.appender.$a.max_size = $_->{max_size}\n" : ""),
-            ($_->{histories} ? "log4perl.appender.$a.max_files = " . ($_->{histories}+1) . "\n" : ""),
-            ($_->{max_age} ? "log4perl.appender.$a.max_age = $_->{max_age}\n" : ""),
-            "log4perl.appender.$a.layout = PatternLayout\n",
-            "log4perl.appender.$a.layout.ConversionPattern = $_->{pattern}\n",
-            "\n",
-        );
-    }
-    $i = 0;
-    for (@{ $spec->{files} }) {
-        my $cat = _format_category($_->{category});
-        my $a = "FILE" . ($i++);
-        $cats{$cat} ||= {appenders => [], level => $spec->{level}};
-        next if $_->{level} eq 'off';
-        $cats{$cat}{level} = _max_level($cats{$cat}{level}, $_->{level});
-        push @{ $cats{$cat}{appenders} }, $a;
-        $config_appenders .= join(
-            "",
-            "log4perl.appender.$a = Log::Dispatch::FileRotate\n",
-            "log4perl.appender.$a.mode = append\n",
-            "log4perl.appender.$a.filename = $_->{path}\n",
-            ($_->{max_size} ? "log4perl.appender.$a.size = " . ($_->{max_size}) . "\n" : ""),
-            ($_->{histories} ? "log4perl.appender.$a.max = " . ($_->{histories}+1) . "\n" : ""),
-            "log4perl.appender.$a.layout = PatternLayout\n",
-            "log4perl.appender.$a.layout.ConversionPattern = $_->{pattern}\n",
-            "\n",
-        );
-    }
-    $i = 0;
-    for (@{ $spec->{screens} }) {
-        my $cat = _format_category($_->{category});
-        my $a = "SCREEN" . ($i++);
-        $cats{$cat} ||= {appenders => [], level => $spec->{level}};
-        next if $_->{level} eq 'off';
-        $cats{$cat}{level} = _max_level($cats{$cat}{level}, $_->{level});
-        push @{ $cats{$cat}{appenders} }, $a;
-        $config_appenders .= join(
-            "",
-            "log4perl.appender.$a = Log::Log4perl::Appender::" . ($_->{color} ? "ScreenColoredLevels" : "Screen") . "\n",
-            ("log4perl.appender.$a.stderr = " . ($_->{stderr} ? 1 : 0) . "\n"),
-            "log4perl.appender.$a.layout = PatternLayout\n",
-            "log4perl.appender.$a.layout.ConversionPattern = $_->{pattern}\n",
-            "\n",
-        );
-    }
-    $i = 0;
-    for (@{ $spec->{syslogs} }) {
-        my $cat = _format_category($_->{category});
-        my $a = "SYSLOG" . ($i++);
-        $cats{$cat} ||= {appenders => [], level => $spec->{level}};
-        next if $_->{level} eq 'off';
-        $cats{$cat}{level} = _max_level($cats{$cat}{level}, $_->{level});
-        push @{ $cats{$cat}{appenders} }, $a;
-        $config_appenders .= join(
-            "",
-            "log4perl.appender.$a = Log::Dispatch::Syslog\n",
-            "log4perl.appender.$a.ident = $_->{ident}\n",
-            "log4perl.appender.$a.facility = $_->{facility}\n",
-            "log4perl.appender.$a.layout = PatternLayout\n",
-            "log4perl.appender.$a.layout.ConversionPattern = $_->{pattern}\n",
-            "\n",
-        );
-    }
-    my $config_cats = '';
-    for (sort {$a cmp $b} keys %cats) {
-        my $c = $cats{$_};
-        my $l = $_ eq '' ? "rootLogger" : "logger.$_";
-        $config_cats .= "log4perl.$l = ".join(", ", uc($c->{level}), @{ $c->{appenders} })."\n";
-    }
-    my $config = $config_cats . "\n" . $config_appenders;
+    my $config = {
+        filters => {},
+        appenders => {},
+        categories => {},
+    };
 
+    _add_appenders_to_categories($config, $spec);
+
+    my $config_str = _gen_l4p_config($config);
     if ($spec->{dump}) {
-        print "Log::Any::App configuration:\n", Data::Dumper->new([$spec])->Terse(1)->Dump;
-        print "Log4perl configuration:\n", $config;
+        print "Log::Any::App configuration:\n",
+            Data::Dumper->new([$spec])->Terse(1)->Dump;
+        print "Log4perl configuration: <<EOC\n", $config_str, "EOC\n";
     }
 
-    Log::Log4perl->init(\$config);
+    Log::Log4perl->init(\$config_str);
     Log::Any::Adapter->set('Log4perl');
 }
 
@@ -191,6 +272,7 @@ sub _parse_opts {
         name => _basename($0),
         init => 1,
         dump => ($ENV{LOGANYAPP_DEBUG} ? 1:0),
+        category_alias => {},
     };
 
     my $i = 0;
@@ -208,12 +290,30 @@ sub _parse_opts {
     $spec->{level} = _set_level("", "");
     if (!$spec->{level} && defined($opts{level})) {
         $spec->{level} = _check_level($opts{level}, "-level");
-        _debug("Setting general level to $spec->{level} (from -level)");
+        _debug("Set general level to $spec->{level} (from -level)");
     } elsif (!$spec->{level}) {
         $spec->{level} = "warn";
-        _debug("Setting general level to $spec->{level} (default)");
+        _debug("Set general level to $spec->{level} (default)");
     }
     delete $opts{level};
+
+    if (defined $opts{category_alias}) {
+        die "category_alias must be a hashref"
+            unless ref($opts{category_alias}) eq 'HASH';
+        $spec->{category_alias} = $opts{category_alias};
+        delete $opts{category_alias};
+    }
+
+    if (defined $opts{category_level}) {
+        die "category_alias must be a hashref"
+            unless ref($opts{category_alias}) eq 'HASH';
+        $spec->{category_level} = {};
+        for (keys %{ $opts{category_level} }) {
+            $spec->{category_level}{$_} =
+                _check_level($opts{category_level}{$_}, "-category_level{$_}");
+        }
+        delete $opts{category_level};
+    }
 
     if (defined $opts{init}) {
         $spec->{init} = $opts{init};
@@ -230,25 +330,26 @@ sub _parse_opts {
         delete $opts{dump};
     }
 
-    $spec->{files} = [];
+    $spec->{file} = [];
     _parse_opt_file($spec, $opts{file} // ($0 ne '-e' ? 1:0));
     delete $opts{file};
 
-    $spec->{dirs} = [];
+    $spec->{dir} = [];
     _parse_opt_dir($spec, $opts{dir} // 0);
     delete $opts{dir};
 
-    $spec->{screens} = [];
+    $spec->{screen} = [];
     _parse_opt_screen($spec, $opts{screen} // 1);
     delete $opts{screen};
 
-    $spec->{syslogs} = [];
+    $spec->{syslog} = [];
     _parse_opt_syslog($spec, $opts{syslog} // (_is_daemon()));
     delete $opts{syslog};
 
     if (keys %opts) {
         die "Unknown option(s) ".join(", ", keys %opts)." Known opts are: ".
-            "name, level, file, dir, screen, syslog, dump, init";
+            "name, level, category_level, category_alias, dump, init, ".
+                "file, dir, screen, syslog";
     }
 
     #use Data::Dumper; print Dumper $spec;
@@ -274,15 +375,56 @@ sub _is_daemon {
     0;
 }
 
+sub _parse_opt_OUTPUT {
+    my (%args) = @_;
+    my $kind = $args{kind};
+    my $default_sub = $args{default_sub};
+    my $spec = $args{spec};
+    my $arg = $args{arg};
+
+    return unless $arg;
+
+    if (!ref($arg) || ref($arg) eq 'HASH') {
+        my $name = uc($kind).(@{ $spec->{$kind} }+0);
+        local $dbg_ctx = $name;
+        push @{ $spec->{$kind} }, $default_sub->($spec);
+        $spec->{$kind}[-1]{name} = $name;
+        if (!ref($arg)) {
+            # leave every output parameter as is
+        } else {
+            for my $k (keys %$arg) {
+                for ($spec->{$kind}[-1]) {
+                    exists($_->{$k}) or die "Invalid $kind argument: $k, please".
+                        " only specify one of: " . join(", ", sort keys %$_);
+                    $_->{$k} = $k eq 'level' ?
+                        _check_level($arg->{$k}, "-$kind") : $arg->{$k};
+                    _debug("Set level of $kind to $_->{$k} (spec)")
+                        if $k eq 'level';
+                }
+            }
+        }
+        $spec->{$kind}[-1]{main_spec} = $spec;
+        _set_pattern($spec->{$kind}[-1], $kind);
+    } elsif (ref($arg) eq 'ARRAY') {
+        for (@$arg) {
+            _parse_opt_OUTPUT(%args, arg => $_);
+        }
+    } else {
+        die "Invalid argument for -$kind, ".
+            "must be a boolean or hashref or arrayref";
+    }
+}
+
 sub _default_file {
     my ($spec) = @_;
     my $level = _set_level("file", "file");
     if (!$level) {
         $level = $spec->{level};
-        _debug("Setting level of file to general level ($level)");
+        _debug("Set level of file to $level (general level)");
     }
     return {
         level => $level,
+        category_level => $spec->{category_level},
         path => $> ? File::Spec->catfile(File::HomeDir->my_home, "$spec->{name}.log") :
             "/var/log/$spec->{name}.log", # XXX and on Windows?
         max_size => undef,
@@ -295,29 +437,15 @@ sub _default_file {
 
 sub _parse_opt_file {
     my ($spec, $arg) = @_;
-    return unless $arg;
-    if (!ref($arg) || ref($arg) eq 'HASH') {
-        push @{ $spec->{files} }, _default_file($spec);
-        if (!ref($arg)) {
-            if ($arg =~ /^(1|yes|true)$/i) {
-                #
-            } else {
-                $spec->{files}[-1]{path} = $arg;
-            }
-        } else {
-            for my $k (keys %$arg) {
-                for ($spec->{files}[-1]) {
-                    exists($_->{$k}) or die "Invalid file argument: $k, please only specify one of: " . join(", ", sort keys %$_);
-                    $_->{$k} = $k eq 'level' ? _check_level($arg->{$k}, "-file") : $arg->{$k};
-                }
-            }
-        }
-        _set_pattern($spec->{files}[-1], 'file');
-    } elsif (ref($arg) eq 'ARRAY') {
-        _parse_opt_file($spec, $_) for @$arg;
-    } else {
-        die "Invalid argument for -file, must be a boolean or hashref or arrayref";
+
+    if (!ref($arg) && $arg && $arg !~ /^(1|yes|true)$/i) {
+        $arg = {path => $arg};
     }
+
+    _parse_opt_OUTPUT(
+        kind => 'file', default_sub => \&_default_file,
+        spec => $spec, arg => $arg,
+    );
 }
 
 sub _default_dir {
@@ -325,10 +453,11 @@ sub _default_dir {
     my $level = _set_level("dir", "dir");
     if (!$level) {
         $level = $spec->{level};
-        _debug("Setting level of dir to general level ($level)");
+        _debug("Set level of dir to $level (general level)");
     }
     return {
         level => $level,
+        category_level => $spec->{category_level},
         path => $> ? File::Spec->catfile(File::HomeDir->my_home, "log", $spec->{name}) :
             "/var/log/$spec->{name}", # XXX and on Windows?
         max_size => undef,
@@ -343,29 +472,15 @@ sub _default_dir {
 
 sub _parse_opt_dir {
     my ($spec, $arg) = @_;
-    return unless $arg;
-    if (!ref($arg) || ref($arg) eq 'HASH') {
-        push @{ $spec->{dirs} }, _default_dir($spec);
-        if (!ref($arg)) {
-            if ($arg =~ /^(1|yes|true)$/i) {
-                #
-            } else {
-                $spec->{dirs}[-1]{path} = $arg;
-            }
-        } else {
-            for my $k (keys %$arg) {
-                for ($spec->{dirs}[-1]) {
-                    exists($_->{$k}) or die "Invalid dir argument: $k, please only specify one of: " . join(", ", sort keys %$_);
-                    $_->{$k} = $k eq 'level' ? _check_level($arg->{$k}, "-dir") : $arg->{$k};
-                }
-            }
-        }
-        _set_pattern($spec->{dirs}[-1], 'dir');
-    } elsif (ref($arg) eq 'ARRAY') {
-        _parse_opt_dir($spec, $_) for @$arg;
-    } else {
-        die "Invalid argument for -dir, must be a boolean or hashref or arrayref";
+
+    if (!ref($arg) && $arg && $arg !~ /^(1|yes|true)$/i) {
+        $arg = {path => $arg};
     }
+
+    _parse_opt_OUTPUT(
+        kind => 'dir', default_sub => \&_default_dir,
+        spec => $spec, arg => $arg,
+    );
 }
 
 sub _default_screen {
@@ -373,12 +488,13 @@ sub _default_screen {
     my $level = _set_level("screen", "screen");
     if (!$level) {
         $level = $spec->{level};
-        _debug("Setting level of screen to general level ($level)");
+        _debug("Set level of screen to $level (general level)");
     }
     return {
         color => $ENV{COLOR} // (-t STDOUT),
         stderr => 1,
         level => $level,
+        category_level => $spec->{category_level},
         category => '',
         pattern_style => 'script_short',
         pattern => undef,
@@ -387,21 +503,10 @@ sub _default_screen {
 
 sub _parse_opt_screen {
     my ($spec, $arg) = @_;
-    return unless $arg;
-    push @{ $spec->{screens} }, _default_screen($spec);
-    if (!ref($arg)) {
-        #
-    } elsif (ref($arg) eq 'HASH') {
-        for my $k (keys %$arg) {
-            for ($spec->{screens}[0]) {
-                exists($_->{$k}) or die "Invalid screen argument: $k, please only specify one of: " . join(", ", sort keys %$_);
-                $_->{$k} = $k eq 'level' ? _check_level($arg->{$k}, "-screen") : $arg->{$k};
-            }
-        }
-    } else {
-        die "Invalid argument for -screen, must be a boolean or hashref";
-    }
-    _set_pattern($spec->{screens}[0], 'screen');
+    _parse_opt_OUTPUT(
+        kind => 'screen', default_sub => \&_default_screen,
+        spec => $spec, arg => $arg,
+    );
 }
 
 sub _default_syslog {
@@ -409,10 +514,11 @@ sub _default_syslog {
     my $level = _set_level("syslog", "syslog");
     if (!$level) {
         $level = $spec->{level};
-        _debug("Setting level of syslog to general level ($level)");
+        _debug("Set level of syslog to $level (general level)");
     }
     return {
         level => $level,
+        category_level => $spec->{category_level},
         ident => $spec->{name},
         facility => 'daemon',
         pattern_style => 'syslog',
@@ -423,44 +529,61 @@ sub _default_syslog {
 
 sub _parse_opt_syslog {
     my ($spec, $arg) = @_;
-    return unless $arg;
-    push @{ $spec->{syslogs} }, _default_syslog($spec);
-    if (!ref($arg)) {
-        #
-    } elsif (ref($arg) eq 'HASH') {
-        for my $k (keys %$arg) {
-            for ($spec->{syslogs}[0]) {
-                exists($_->{$k}) or die "Invalid syslog argument: $k, please only specify one of: " . join(", ", sort keys %$_);
-                $_->{$k} = $k eq 'level' ? _check_level($arg->{$k}, "-syslog") : $arg->{$k};
-            }
-        }
-    } else {
-        die "Invalid argument for -syslog, must be a boolean or hashref";
-    }
-    _set_pattern($spec->{syslogs}[0], 'syslog');
+    _parse_opt_OUTPUT(
+        kind => 'syslog', default_sub => \&_default_syslog,
+        spec => $spec, arg => $arg,
+    );
 }
 
 sub _set_pattern {
     my ($s, $name) = @_;
+    _debug("Setting $name pattern ...");
     unless (defined($s->{pattern})) {
         die "BUG: neither pattern nor pattern_style is defined ($name)"
             unless defined($s->{pattern_style});
-        die "Unknown pattern style for $name `$s->{pattern_style}`, use one of: ".join(", ", keys %PATTERN_STYLES)
+        die "Unknown pattern style for $name `$s->{pattern_style}`, ".
+            "use one of: ".join(", ", keys %PATTERN_STYLES)
             unless defined($PATTERN_STYLES{ $s->{pattern_style} });
         $s->{pattern} = $PATTERN_STYLES{ $s->{pattern_style} };
-        _debug("Setting $name pattern to `$s->{pattern}` (from style `$s->{pattern_style}`)");
+        _debug("Set $name pattern to `$s->{pattern}` ".
+                   "(from style `$s->{pattern_style}`)");
     }
 }
 
-sub _format_category {
-    my ($cat) = @_;
-    $cat =~ s/::/./g;
-    lc($cat);
+sub _extract_category {
+    my ($ospec, $c) = @_;
+    my $c0 = $c // $ospec->{category};
+    my @res;
+    if (ref($c0) eq 'ARRAY') { @res = @$c0 } else { @res = ($c0) }
+    # replace alias with real value
+    for (my $i=0; $i<@res; $i++) {
+        my $c1 = $res[$i];
+        my $a = $ospec->{main_spec}{category_alias}{$c1};
+        next unless defined($a);
+        if (ref($a) eq 'ARRAY') {
+            splice @res, $i, 1, @$a;
+            $i += (@$a-1);
+        } else {
+            $res[$i] = $a;
+        }
+    }
+    for (@res) {
+        s/::/./g;
+        # $_ = lc; # XXX do we need this?
+    }
+    @res;
+}
+
+sub _cat2apd {
+    my $cat = shift;
+    $cat =~ s/[^A-Za-z0-9_]+/_/g;
+    $cat;
 }
 
 sub _check_level {
     my ($level, $from) = @_;
-    $level =~ /^(off|fatal|error|warn|info|debug|trace)$/i or die "Unknown level (from $from): $level";
+    $level =~ /^(off|fatal|error|warn|info|debug|trace)$/i
+        or die "Unknown level (from $from): $level";
     lc($1);
 }
 
@@ -473,9 +596,11 @@ sub _set_level {
     my $pr = $prefix ? qr/$prefix(_|-)/ : qr//;
     my ($level, $from);
 
-    my @label2level =([trace=>"trace"], [debug=>"debug"], [verbose=>"info"], [quiet=>"error"]);
+    my @label2level =([trace=>"trace"], [debug=>"debug"],
+                      [verbose=>"info"], [quiet=>"error"]);
 
-  FIND:
+    _debug("Setting ", ($which ? "level of $which" : "general level"), " ...");
+  SET:
     {
         if ($INC{"App/Options.pm"}) {
             my $key;
@@ -485,7 +610,7 @@ sub _set_level {
                 if ($App::options{$key}) {
                     $level = _check_level($App::options{$key}, "\$App::options{$key}");
                     $from = "\$App::options{$key}";
-                    last FIND;
+                    last SET;
                 }
             }
             for (@label2level) {
@@ -494,7 +619,7 @@ sub _set_level {
                 if ($App::options{$key}) {
                     $level = $_->[1];
                     $from = "\$App::options{$key}";
-                    last FIND;
+                    last SET;
                 }
             }
         }
@@ -507,18 +632,18 @@ sub _set_level {
             if ($arg =~ /^--${pr}log[_-]?level=(.+)/) {
                 _debug("\$ARGV[$i] looks like an option to specify level: $arg");
                 $level = _check_level($1, "ARGV $arg");
-                last FIND;
+                last SET;
             }
             if ($arg =~ /^--${pr}log[_-]?level$/ and $i < @ARGV-1) {
                 _debug("\$ARGV[$i] and \$ARGV[${\($i+1)}] looks like an option to specify level: $arg ", $ARGV[$i+1]);
                 $level = _check_level($ARGV[$i+1], "ARGV $arg ".$ARGV[$i+1]);
-                last FIND;
+                last SET;
             }
             for (@label2level) {
                 if ($arg =~ /^--${pr}$_->[0](=(1|yes|true))?$/i) {
                     _debug("\$ARGV[$i] looks like an option to specify level: $arg");
                     $level = $_->[1];
-                    last FIND;
+                    last SET;
                 }
             }
             $i++;
@@ -530,7 +655,7 @@ sub _set_level {
             if ($ENV{$key}) {
                 $level = _check_level($ENV{$key}, "ENV $key");
                 $from = "\$ENV{$key}";
-                last FIND;
+                last SET;
             }
         }
         for (@label2level) {
@@ -539,7 +664,7 @@ sub _set_level {
             if ($ENV{$key}) {
                 $level = $_->[1];
                 $from = "\$ENV{$key}";
-                last FIND;
+                last SET;
             }
         }
 
@@ -551,7 +676,7 @@ sub _set_level {
             if ($$varname) {
                 $from = "\$$varname";
                 $level = _check_level($$varname, "\$$varname");
-                last FIND;
+                last SET;
             }
         }
         for (@label2level) {
@@ -562,21 +687,22 @@ sub _set_level {
                 if ($$varname) {
                     $from = "\$$varname";
                     $level = $_->[1];
-                    last FIND;
+                    last SET;
                 }
             }
         }
     }
 
-    _debug("Setting ", ($which ? "level of $which" : "general level"), " to $level (from $from)") if $level;
+    _debug("Set ", ($which ? "level of $which" : "general level"), " to $level (from $from)") if $level;
     return $level;
 }
 
-# return the higher level (e.g. _max_level("debug", "INFO") -> INFO
-sub _max_level {
+# return the lower level (e.g. _min_level("debug", "INFO") -> INFO
+sub _min_level {
     my ($l1, $l2) = @_;
-    my %vals = (OFF=>0, FATAL=>1, ERROR=>2, WARN=>3, INFO=>4, DEBUG=>5, TRACE=>6);
-    $vals{uc($l1)} > $vals{uc($l2)} ? $l1 : $l2;
+    my %vals = (OFF=>99,
+                FATAL=>6, ERROR=>5, WARN=>4, INFO=>3, DEBUG=>2, TRACE=>1);
+    $vals{uc($l1)} > $vals{uc($l2)} ? $l2 : $l1;
 }
 
 sub _export_logger {
@@ -588,7 +714,9 @@ sub _export_logger {
 }
 
 sub _debug {
-    print @_, "\n" if $ENV{LOGANYAPP_DEBUG};
+    return unless $ENV{LOGANYAPP_DEBUG};
+    print $dbg_ctx, ": " if $dbg_ctx;
+    print @_, "\n";
 }
 
 sub import {
@@ -612,11 +740,11 @@ __END__
 
 =head1 NAME
 
-Log::Any::App - A simple wrapper for Log::Any + Log::Log4perl for use in applications
+Log::Any::App - An easy way to use Log::Any in applications
 
 =head1 VERSION
 
-version 0.17
+version 0.18
 
 =head1 SYNOPSIS
 
@@ -632,14 +760,13 @@ L<Log::Any> makes life easy for module authors. All you need to do is:
 
  use Log::Any qw($log);
 
-and you're off logging with $log->debug(), $log->info(),
-$log->error(), etc. That's it. The task of initializing and
-configuring the logger rests on the shoulder of module users.
+and you're off producing logs with $log->debug(), $log->info(), $log->error(),
+etc. That's it. The task of consuming logs (setting up each output, deciding
+which messages gets to which output, etc) rests on the shoulder of module users.
 
-It's less straightforward for module users though, especially for
-casual ones. You have to pick an adapter and connect it to another
-logging framework (like L<Log::Log4perl>) and configure it. The
-typical incantation is like this:
+Life is not equally easy for the module users (or application authors) though.
+The typical incantation to consume logs (assuming we use the Log::Log4perl
+adapter) is:
 
  use Log::Any qw($log);
  use Log::Any::Adapter;
@@ -652,10 +779,9 @@ typical incantation is like this:
  Log::Log4perl->init(\$log4perl_config);
  Log::Any::Adapter->set('Log4perl');
 
-Frankly, I couldn't possibly remember all that (especially the details
-of Log4perl configuration), hence Log::Any::App. The goal of
-Log::Any::App is to make life equally easy for application authors and
-module users. All you need to do is:
+Frankly, I couldn't possibly remember all that (especially the details of
+Log4perl configuration), hence Log::Any::App. The goal of Log::Any::App is to
+make life equally easy for log consumers. All you need to do is:
 
  use Log::Any::App qw($log);
 
@@ -663,86 +789,157 @@ or, from the command line:
 
  perl -MLog::Any::App='$log' -MModuleThatUsesLogAny -e ...
 
-and you can display the logs in screen, file(s), syslog, etc. You can
-also log using $log->debug(), etc as usual. Most of the time you don't
-need to configure anything as Log::Any::App will construct the most
-appropriate default Log4perl config for your application.
+and you can display the logs in screen, file(s), syslog, etc. You can also log
+using $log->debug(), etc as usual. Most of the time you don't need to configure
+anything as Log::Any::App will construct the most appropriate default Log4perl
+config for your application.
 
-I mostly use Log::Any;:App in scripts and one-liners whenever there
-are Log::Any-using modules involved (like L<Data::Schema> or
+I mostly use Log::Any;:App in oneliners and simple to medium scripts whenever I
+have to use Log::Any-using modules (for example: L<Data::Schema> and
 L<Config::Tree>).
 
 =head1 USING AND EXAMPLES
 
-Most of the time you just need to do this from command line:
+Using Log::Any::App is very easy. Most of the time you just need to do this from
+command line:
 
  % perl -MLog::Any::App -MModuleThatUsesLogAny -e ...
 
 or from a script:
 
- use Log::Any::App qw($log);
+ use ModuleThatUsesLogAny;
+ use Log::Any::App '$log';
 
-this will send logs to screen as well as file (~/$NAME.log or
-/var/log/$NAME.log if running as root). One-liners by default do not
-log to file. $NAME will be taken from $0, but can be changed using:
+This will send logs to screen as well as file (~/$SCRIPT_NAME.log or
+/var/log/$SCRIPT_NAME.log if running as root, command-line scripts by default do
+not log to file) with the default level of 'warn'. This means $log->error("foo")
+will display, while $log->info("bar") will not.
 
- use Log::Any::App '$log', -name => 'myprog';
+The 'use Log::Any::App' statement can be issued before or after the modules that
+use Log::Any, it doesn't matter. Logging will be initialized in the INIT phase.
 
-Default level is 'warn', but can be changed in several ways. From the
-code:
+=head2 Changing logging level
+
+Changing logging level can be done from the script or outside the script. From
+the script:
 
  use Log::Any::App '$log', -level => 'debug';
 
-or:
+but oftentimes what you want is changing level without modifying the script
+itself. So leave it to Log::Any::App to determine level:
+
+ use Log::Any::App '$log';
+
+and then you can use environment variable:
+
+ TRACE=1 script.pl;       # setting level to trace
+ DEBUG=1 script.pl;       # setting level to debug
+ VERBOSE=1 script.pl;     # setting level to info
+ QUIET=1 script.pl;       # setting level to error
+ LOG_LEVEL=... script.pl; # setting a specific log level
+
+or command-line options:
+
+ script.pl --trace
+ script.pl --debug
+ script.pl --verbose
+ script.pl --quiet
+ script.pl --log_level=debug;   # '--log-level debug' will also do
+
+Log::Any::App won't interfere with command-line processing modules like
+L<Getopt::Long> or L<App::Options>.
+
+=head2 Changing default level
+
+The default log level is 'warn'. You can change this using:
+
+ use Log::Any::App '$log';
+ BEGIN { our $Log_Level = 'info' }
+
+and then you can still use environment or command-line options to override the
+setting.
+
+=head2 Changing per-output level
+
+Logging level can also be specified on a per-output level. For example, if you
+want your script to be chatty on the screen but still logs to file at the default
+'warn' level:
+
+ SCREEN_VERBOSE=1 script.pl
+ SCREEN_DEBUG=1 script.pl
+ SCREEN_TRACE=1 script.pl
+ SCREEN_LOG_LEVEL=info script.pl
+
+ script.pl --screen_verbose
+ script.pl --screen-debug
+ script.pl --screen-trace=1
+ script.pl --screen-log-level=info
+ # and so on
+
+Similarly, to set only file level, use FILE_VERBOSE, FILE_LOG_LEVEL,
+--file-trace, etc.
+
+=head2 Setting default per-output level
+
+As with setting default level, you can also set default level on a per-output
+basis:
 
  use Log::Any::App '$log';
  BEGIN {
-     $Log_Level = 'fatal'; # setting to fatal
-     $Log_Level = 'off';   # setting to off
-     # $Quiet = 1;         # another way, setting to error
-     # $Log_Level= 'warn'; # setting to warn, default
-     # $Verbose = 1;       # another way, setting to info
-     # $Debug = 1;         # another way, setting to debug
-     # $Trace = 1;         # another way, setting to trace
+     our $Screen_Log_Level = 'off';
+     our $File_Quiet = 1; # setting level to 'error'
+     # and so on
  }
 
-or from environment variable:
+If a per-output level is not specifed, it will default to the general log level.
 
- LOG_LEVEL=fatal yourprogram.pl;   # setting level to fatal
- LOG_LEVEL=off yourprogram.pl;     # setting level to off
- QUIET=1 yourprogram.pl;           # another way, setting to error
- LOG_LEVEL=warn yourprogram.pl;    # setting level to warn, default
- VERBOSE=1 yourprogram.pl;         # another way, setting to info
- DEBUG=1 yourprogram.pl;           # another way, setting to debug
- TRACE=1 yourprogram.pl;           # another way, setting to trace
+=head2 Enabling/disabling output
 
-or, from the command line options:
+To disable a certain output, you can do this:
 
- yourprogram.pl --log-level debug
- yourprogram.pl --debug
- # and so on
+ use Log::Any::App '$log', -file => 0;
 
-If you want to add a second file with a different level and category:
+or:
 
- use Log::Any::App '$log', -file => ['first.log',
-                                     {path=>'second.log', level=>'debug',
-                                      category=>'Some::Category'}];
+ use Log::Any::App '$log', -screen => {level=>'off'};
 
-If you want to turn off screen logging:
-
- use Log::Any::App -screen => 0;
-
-Or, to turn screen logging off but allow environment and command line to
-override/enable it later, you can do:
+and this won't allow it to be reenabled from outside the script. However if you
+do this:
 
  use Log::Any::App;
- BEGIN { $Screen_Log_Level = 'off' }
+ BEGIN { our $Screen_Log_Level = 'off' }
 
-If you then want to enable screen logging temporarily, you can call the script
-with --screen-log-level=debug or set environment SCREEN_VERBOSE=1, etc.
+then you will be able to override the screen log level using environment or
+command-line options (SCREEN_DEBUG, --screen-verbose, and so on).
 
-Logging to syslog is enabled by default if your script looks like a
-daemon, e.g.:
+=head2 Changing log file name/location
+
+By default Log::Any::App will use ~/$NAME.log (or /var/log/$NAME.log if script is
+running as root), where $NAME taken from $0, but can be changed using:
+
+ use Log::Any::App '$log', -name => 'myprog';
+
+Or, using custom path:
+
+ use Log::Any::App '$log', -file => '/path/to/file';
+
+=head2 Changing other output parameters
+
+Each output argument can accept a hashref to specify various options. For
+example:
+
+ use Log::Any::App '$log',
+     -screen => {color=>0},   # never use color
+     -file   => {path=>'/var/log/foo',
+                 rotate=>'10M',
+                 histories=>10,
+                },
+
+For all the available options of each output, see the init() function.
+
+=head2 Logging to syslog
+
+Logging to syslog is enabled by default if your script looks like a daemon, e.g.:
 
  use Net::Daemon; # this indicate your program is a daemon
  use Log::Any::App; # syslog logging will be turned on by default
@@ -751,7 +948,66 @@ but if you don't want syslog logging:
 
  use Log::Any::App -syslog => 0;
 
-For all the available options, see the init() function.
+=head2 Logging to directory
+
+This is done using L<Log::Dispatch::Dir> where each log message is logged to a
+different file in a specified directory. By default logging to dir is not turned
+on, to turn it on:
+
+ use Log::Any::App '$log', -dir => 1;
+
+For all the available options of directory output, see the init() function.
+
+=head2 Multiple outputs
+
+Each output argument can accept an arrayref to specify more than one output,
+example:
+
+ use Log::Any::App '$log',
+     -file => ["/var/log/log1",
+               {path=>"/var/log/debug_foo", category=>'Foo', level=>'debug'}];
+
+=head2 Changing level of a certain module
+
+Suppose you want to shut up Foo, Bar::Baz, and Qux's logging because they are too
+noisy:
+
+ use Log::Any::App '$log',
+     -category_level => { Foo => 'off', 'Bar::Baz' => 'off', Qux => 'off' };
+
+or (same thing):
+
+ use Log::Any::App '$log',
+     -category_alias => { -noisy => [qw/Foo Bar::Baz Qux/] },
+     -category_level => { -noisy => 'off' };
+
+You can even specify this on a per-output basis. Suppose you only want to shut up
+the noisy modules on the screen, but not on the file:
+
+ use Log::Any::App '$log',
+    -category_alias => { -noisy => [qw/Foo Bar::Baz Qux/] },
+    -screen => { category_level => { -noisy => 'off' } };
+
+Or perhaps, you want to shut up the noisy modules everywhere, except on the
+screen:
+
+ use Log::Any::App '$log',
+     -category_alias => { -noisy => [qw/Foo Bar::Baz Qux/] },
+     -category_level => { -noisy => 'off' },
+     -syslog => 1,
+     -file   => "/var/log/foo",
+     -screen => { category_level => {} }; # do not do per-category level
+
+=head2 Preventing logging level to be changed from outside the script
+
+Sometimes, for security/audit reasons, you don't want to allow script caller to
+change logging level. To do so, just specify the 'level' option in the script
+during 'use' statement:
+
+=head2 Debugging
+
+To see the Log4perl configuration that is generated by Log::Any::App and how it
+came to be, set environment LOGANYAPP_DEBUG to true.
 
 =head1 FUNCTIONS
 
@@ -781,6 +1037,30 @@ Log4perl yourself (but then there's not much point in using this module, right?)
 =item -name => STRING
 
 Change the program name. Default is taken from $0.
+
+=item -category_alias => {ALIAS=>CATEGORY, ...}
+
+Create category aliases so the ALIAS can be used in place of real categories in
+each output's category specification. For example, instead of doing this:
+
+ init(
+     -file   => [category=>[qw/Foo Bar Baz/], ...],
+     -screen => [category=>[qw/Foo Bar Baz/]],
+ );
+
+you can do this instead:
+
+ init(
+     -category_alias => {_fbb => [qw/Foo Bar Baz/]},
+     -file   => [category=>'-fbb', ...],
+     -screen => [category=>'-fbb', ...],
+ );
+
+=item -category_level => {CATEGORY=>LEVEL, ...}
+
+Specify per-category level. Categories not mentioned on this will use the general
+level (-level). This can be used to increase or decrease logging on certain
+categories/modules.
 
 =item -level => 'trace'|'debug'|'info'|'warn'|'error'|'fatal'|'off'
 
@@ -814,15 +1094,15 @@ If everything fails, it defaults to 'warn'.
 Specify output to one or more files, using
 L<Log::Dispatch::FileRotate>.
 
-If the argument is a false boolean value, file logging will be turned
-off. If argument is a true value that matches /^(1|yes|true)$/i, file
-logging will be turned on with default path, etc. If the argument is
-another scalar value then it is assumed to be a path. If the argument
-is a hashref, then the keys of the hashref must be one of: C<level>,
-C<path>, C<max_size> (maximum size before rotating, in bytes, 0 means
-unlimited or never rotate), C<histories> (number of old files to keep,
-excluding the current file), C<category>, C<pattern_style> (see
-L<"PATTERN STYLES">), C<pattern> (Log4perl pattern).
+If the argument is a false boolean value, file logging will be turned off. If
+argument is a true value that matches /^(1|yes|true)$/i, file logging will be
+turned on with default path, etc. If the argument is another scalar value then it
+is assumed to be a path. If the argument is a hashref, then the keys of the
+hashref must be one of: C<level>, C<path>, C<max_size> (maximum size before
+rotating, in bytes, 0 means unlimited or never rotate), C<histories> (number of
+old files to keep, excluding the current file), C<category> (a string of ref to
+array of strings), C<category_level> (a hashref, similar to -category_level),
+C<pattern_style> (see L<"PATTERN STYLES">), C<pattern> (Log4perl pattern).
 
 If the argument is an arrayref, it is assumed to be specifying
 multiple files, with each element of the array as a hashref.
@@ -851,18 +1131,17 @@ Log messages using L<Log::Dispatch::Dir>. Each message is logged into
 separate files in the directory. Useful for dumping content
 (e.g. HTML, network dumps, or temporary results).
 
-If the argument is a false boolean value, dir logging will be turned
-off. If argument is a true value that matches /^(1|yes|true)$/i, dir
-logging will be turned on with defaults path, etc. If the argument is
-another scalar value then it is assumed to be a directory path. If the
-argument is a hashref, then the keys of the hashref must be one of:
-C<level>, C<path>, C<max_size> (maximum total size of files before
-deleting older files, in bytes, 0 means unlimited), C<max_age>
-(maximum age of files to keep, in seconds, undef means
-unlimited). C<histories> (number of old files to keep, excluding the
-current file), C<category>, C<pattern_style> (see L<"PATTERN STYLES">),
-C<pattern> (Log4perl pattern), C<filename_pattern> (pattern of file
-name).
+If the argument is a false boolean value, dir logging will be turned off. If
+argument is a true value that matches /^(1|yes|true)$/i, dir logging will be
+turned on with defaults path, etc. If the argument is another scalar value then
+it is assumed to be a directory path. If the argument is a hashref, then the keys
+of the hashref must be one of: C<level>, C<path>, C<max_size> (maximum total size
+of files before deleting older files, in bytes, 0 means unlimited), C<max_age>
+(maximum age of files to keep, in seconds, undef means unlimited). C<histories>
+(number of old files to keep, excluding the current file), C<category>,
+C<category_level> (a hashref, similar to -category_level), C<pattern_style> (see
+L<"PATTERN STYLES">), C<pattern> (Log4perl pattern), C<filename_pattern> (pattern
+of file name).
 
 If the argument is an arrayref, it is assumed to be specifying
 multiple directories, with each element of the array as a hashref.
@@ -890,14 +1169,13 @@ similars).
 
 Log messages using L<Log::Log4perl::Appender::ScreenColoredLevels>.
 
-If the argument is a false boolean value, screen logging will be
-turned off. If argument is a true value that matches
-/^(1|yes|true)$/i, screen logging will be turned on with default
-settings. If the argument is a hashref, then the keys of the hashref
-must be one of: C<color> (default is true, set to 0 to turn off
-color), C<stderr> (default is true, set to 0 to log to stdout
-instead), C<level>, C<category>, C<pattern_style> (see L<"PATTERN
-STYLE">), C<pattern> (Log4perl string pattern).
+If the argument is a false boolean value, screen logging will be turned off. If
+argument is a true value that matches /^(1|yes|true)$/i, screen logging will be
+turned on with default settings. If the argument is a hashref, then the keys of
+the hashref must be one of: C<color> (default is true, set to 0 to turn off
+color), C<stderr> (default is true, set to 0 to log to stdout instead), C<level>,
+C<category>, C<category_level> (a hashref, similar to -category_level),
+C<pattern_style> (see L<"PATTERN STYLE">), C<pattern> (Log4perl string pattern).
 
 How Log::Any::App determines defaults for screen logging:
 
@@ -916,13 +1194,12 @@ argument is not set).
 
 Log messages using L<Log::Dispatch::Syslog>.
 
-If the argument is a false boolean value, syslog logging will be
-turned off. If argument is a true value that matches
-/^(1|yes|true)$/i, syslog logging will be turned on with default
-level, ident, etc. If the argument is a hashref, then the keys of the
-hashref must be one of: C<level>, C<ident>, C<facility>, C<category>,
-C<pattern_style> (see L<"PATTERN STYLES">), C<pattern> (Log4perl
-pattern).
+If the argument is a false boolean value, syslog logging will be turned off. If
+argument is a true value that matches /^(1|yes|true)$/i, syslog logging will be
+turned on with default level, ident, etc. If the argument is a hashref, then the
+keys of the hashref must be one of: C<level>, C<ident>, C<facility>, C<category>,
+C<category_level> (a hashref, similar to -category_level), C<pattern_style> (see
+L<"PATTERN STYLES">), C<pattern> (Log4perl pattern).
 
 How Log::Any::App determines defaults for syslog logging:
 
@@ -996,46 +1273,38 @@ If you have a favorite pattern style, please do share them.
 
 =head2 What's the benefit of using Log::Any::App?
 
-All of Log::Any and all of Log::Log4perl, as what Log::Any::App does
-is just combine those two (and add a thin wrapper). You still produce
-log with Log::Any so later should portions of your application code
-get refactored into modules, you don't need to change the logging
-part.
+You get all the benefits of Log::Any, as what Log::Any::App does is just wrap
+Log::Any and L<Log::Log4perl> with some nice defaults. It provides you with an
+easy way to consume Log::Any logs and customize level/some other options via
+various ways.
+
+You still produce logs with Log::Any so later should portions of your application
+code get refactored into modules, you don't need to change the logging part. And
+if your application becomes more complex and Log::Any::App doesn't suffice your
+custom logging needs anymore, you can just replace 'use Log::Any::App' line with
+something more adequate.
+
+=head2 And what's the benefit of using Log::Any?
+
+This is better described in the Log::Any documentation itself, but in short:
+Log::Any frees your module users to use whatever logging framework they want. It
+increases the reusability of your modules.
 
 =head2 Do I need Log::Any::App if I am writing modules?
 
 No, if you write modules just use Log::Any.
 
-=head2 Why Log4perl instead of Log::Dispatch?
+=head2 Why use Log4perl?
 
-You can use Log::Dispatch::* output modules in Log4perl but
-(currently) not vice versa.
+Log::Any::App uses the Log4perl adapter to display the logs because it is mature,
+flexible, featureful. The other alternative adapter is Log::Dispatch, but you can
+use Log::Dispatch::* output modules in Log4perl and (currently) not vice versa.
 
-You can configure Log4perl using a configuration file, so you can
-conveniently store your settings separate from the application.
+Other adapters might be considered in the future, for now I'm fairly satisfied
+with Log4perl.
 
-Feel free to fork Log::Any::App and use Log::Dispatch instead if you
-don't like Log4perl.
-
-=head2 Why not just use Log4perl then? Why bother with Log::Any at all? You're tied to Log4perl anyway.
-
-Yes, combining Log::Any with Log4perl (or some other adapter) is
-necessary to get output, but that's only in applications. Your
-Log::Any-using modules are still not tied to any adapter.
-
-The goal is to keep using Log::Any in your modules, and have a
-convenient way of displaying your logs in your applications, without a
-long incantation.
-
-Users of your modules can still use Log::Dispatch or some other
-adapter if they want to. You are not forcing your module users to use
-Log4perl.
-
-Btw, I'm actually fine with a Log4perl-only world. It's just that (currently) you
-need to explicitly initialize Log4perl so this might irritate my users if I use
-Log4perl in my modules. Log::Any's default is the nice 'null' logging so my users
-don't need to be aware of logging at all. And Log::Any also provides some other
-convenience, e.g. debugf() et al which can dump data structures,
+Note that producing logs are still done with Log::Any as usual and not tied to
+Log4perl in any way.
 
 =head2 How do I create extra logger objects?
 
@@ -1043,38 +1312,18 @@ The usual way as with Log::Any:
 
  my $other_log = Log::Any->get_logger(category => $category);
 
-=head2 How do I set default level for certain output, but allow this to be overriden in environment/command line?
-
-If you set level as an argument to init, i.e.:
-
- use Log::Any::App -screen => {level=>'off'};
-
-then you will not be able to override this via environment/command line, because
-init argument takes precedence. However, if yo do this:
-
- use Log::Any::App; # screen log level is default
- BEGIN { our $Screen_Log_Level = 'off' }
-
-then you will be able to override the screen log level using environment
-SCREEN_LOG_LEVEL (or SCREEN_DEBUG=1, and so on) or command-line
---screen-log-level (or --screen-debug, and so on).
-
-=head2 How do I see the Log4perl configuration that gets used?
-
-Set environment LOGANYAPP_DEBUG to true, and Log::Any::App will dump
-the Log4perl configuration as well as additional messages to help you
-trace how it came up to be.
-
 =head2 My needs are not met by the simple configuration system of Log::Any::App!
 
-You can use Log4perl adapter directly and write your own Log4perl configuration.
-Log::Any::App is meant for quick and simple logging output needs anyway (but do
-tell me if your logging output needs are reasonably simple and should be
-supported by Log::Any::App).
+You can use Log4perl adapter directly and write your own Log4perl configuration
+(or even other adapters). Log::Any::App is meant for quick and simple logging
+output needs anyway (but do tell me if your logging output needs are reasonably
+simple and should be supported by Log::Any::App).
 
 =head1 BUGS/TODOS
 
 Need to provide appropriate defaults for Windows/other OS.
+
+Probably: SCREEN0_DEBUG, --file1-log-level, etc.
 
 =head1 SEE ALSO
 

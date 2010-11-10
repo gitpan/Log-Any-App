@@ -15,12 +15,12 @@ my %module_build_args = (
   'configure_requires' => {
     'Module::Build' => '0.3601'
   },
-  'dist_abstract' => 'A simple wrapper for Log::Any + Log::Log4perl for use in applications',
+  'dist_abstract' => 'An easy way to use Log::Any in applications',
   'dist_author' => [
     'Steven Haryanto <stevenharyanto@gmail.com>'
   ],
   'dist_name' => 'Log-Any-App',
-  'dist_version' => '0.17',
+  'dist_version' => '0.18',
   'license' => 'perl',
   'module_name' => 'Log::Any::App',
   'recommends' => {},
@@ -36,7 +36,8 @@ my %module_build_args = (
     'Log::Dispatch::FileRotate' => '0',
     'Log::Dispatch::Syslog' => '0',
     'Log::Log4perl' => '0',
-    'perl' => '5.010'
+    'perl' => '5.010',
+    'vars' => '0'
   },
   'script_files' => []
 );
