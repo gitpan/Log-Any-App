@@ -1,5 +1,8 @@
 Revision history for Log-Any-App
 
+0.21     2010-11-09
+         - Remove warning messages in test
+
 0.20     2010-11-09
          - Fixed: Log4perl configuration (yet again!), now mixing
            level/category_level (general and per-output) works

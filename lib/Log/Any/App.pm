@@ -1,6 +1,6 @@
 package Log::Any::App;
 BEGIN {
-  $Log::Any::App::VERSION = '0.20';
+  $Log::Any::App::VERSION = '0.21';
 }
 # ABSTRACT: An easy way to use Log::Any in applications
 
@@ -766,7 +766,7 @@ Log::Any::App - An easy way to use Log::Any in applications
 
 =head1 VERSION
 
-version 0.20
+version 0.21
 
 =head1 SYNOPSIS
 

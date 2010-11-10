@@ -24,6 +24,7 @@ sub reset_vars {
     delete $ENV{$_} for keys %ENV; $ENV{$_} = $orig_env{$_} for keys %orig_env;
     @ARGV = ();
     no strict 'refs';
+    no warnings;
     for my $v (@global_vars) { $v = "main::$v"; $$v = undef }
 }
 
