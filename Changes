@@ -1,5 +1,8 @@
 Revision history for Log-Any-App
 
+0.22     2010-11-10
+         - Fixed dist.ini (require File::Path 2.07 not yet specified)
+
 0.21     2010-11-09
          - Remove warning messages in test
 

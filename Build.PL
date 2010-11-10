@@ -21,7 +21,7 @@ my %module_build_args = (
     'Steven Haryanto <stevenharyanto@gmail.com>'
   ],
   'dist_name' => 'Log-Any-App',
-  'dist_version' => '0.21',
+  'dist_version' => '0.22',
   'license' => 'perl',
   'module_name' => 'Log::Any::App',
   'recommends' => {},
@@ -29,7 +29,7 @@ my %module_build_args = (
   'requires' => {
     'Data::Dumper' => '0',
     'File::HomeDir' => '0',
-    'File::Path' => '0',
+    'File::Path' => '2.07',
     'File::Slurp' => '0',
     'File::Spec' => '0',
     'Log::Any' => '0.11',
