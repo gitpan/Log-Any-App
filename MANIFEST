@@ -8,5 +8,8 @@ README
 dist.ini
 lib/Log/Any/App.pm
 t/00-compile.t
+t/01-basics.t
+t/02-log-1.t
 t/release-pod-coverage.t
 t/release-pod-syntax.t
+t/testlib.pl

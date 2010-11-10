@@ -1,5 +1,10 @@
 Revision history for Log-Any-App
 
+0.20     2010-11-09
+         - Fixed: Log4perl configuration (yet again!), now mixing
+           level/category_level (general and per-output) works
+         - Add some tests
+
 0.19     2010-11-08
          - Fixed typo
 

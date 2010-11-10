@@ -8,6 +8,7 @@ use Module::Build 0.3601;
 my %module_build_args = (
   'build_requires' => {
     'File::Find' => '0',
+    'File::Slurp' => '0',
     'File::Temp' => '0',
     'Module::Build' => '0.3601',
     'Test::More' => '0'
@@ -20,7 +21,7 @@ my %module_build_args = (
     'Steven Haryanto <stevenharyanto@gmail.com>'
   ],
   'dist_name' => 'Log-Any-App',
-  'dist_version' => '0.19',
+  'dist_version' => '0.20',
   'license' => 'perl',
   'module_name' => 'Log::Any::App',
   'recommends' => {},
@@ -29,6 +30,7 @@ my %module_build_args = (
     'Data::Dumper' => '0',
     'File::HomeDir' => '0',
     'File::Path' => '0',
+    'File::Slurp' => '0',
     'File::Spec' => '0',
     'Log::Any' => '0.11',
     'Log::Any::Adapter' => '0',
@@ -36,7 +38,7 @@ my %module_build_args = (
     'Log::Dispatch::FileRotate' => '0',
     'Log::Dispatch::Syslog' => '0',
     'Log::Log4perl' => '0',
-    'perl' => '5.010',
+    'perl' => '5.010000',
     'vars' => '0'
   },
   'script_files' => []

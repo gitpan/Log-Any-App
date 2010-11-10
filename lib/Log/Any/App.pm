@@ -1,6 +1,6 @@
 package Log::Any::App;
 BEGIN {
-  $Log::Any::App::VERSION = '0.19';
+  $Log::Any::App::VERSION = '0.20';
 }
 # ABSTRACT: An easy way to use Log::Any in applications
 
@@ -32,7 +32,7 @@ my %PATTERN_STYLES = (
 
 
 my $init_args;
-my $init_called;
+our $init_called;
 
 sub init {
     return if $init_called++;
@@ -41,8 +41,8 @@ sub init {
     $caller ||= caller();
 
     my $spec = _parse_opts($args, $caller);
-    return unless $spec->{init};
-    _init_log4perl($spec);
+    _init_log4perl($spec) if $spec->{init};
+    $spec;
 }
 
 sub _gen_appender_config {
@@ -89,47 +89,15 @@ sub _gen_appender_config {
 }
 
 sub _gen_l4p_config {
-    my ($config) = @_;
-
-    my $cats      = $config->{categories};
-    my %seen_appenders;
-
-    my $cats_str = '';
-    my $add_str  = '';
-    my $apd_str  = '';
-
-    for my $cat (sort {$a cmp $b} keys %$cats) {
-        $add_str .= "log4perl.additivity.$cat = 0\n" unless $cat eq '';
-        my $c = $cats->{$cat};
-        my $level = uc($c->{level});
-        my @apd = @{ $c->{appenders} };
-        my @apd_names;
-        for my $apd (@apd) {
-            next if $level eq 'OFF';
-            my $ospec = $apd->{ospec};
-            my $alevel = uc($apd->{level});
-            next if $alevel eq 'OFF';
-            my $filter = $alevel ne $level &&
-                _min_level($alevel, $level) eq $level ? "Filter$alevel" : "";
-            my $apd_name = $ospec->{name} .
-                ($filter ? "_$alevel" : "");
-            #print "D:cat=$cat, apd=$ospec->{name}, name=$apd_name, filter=$filter\n";
-            push @apd_names, $apd_name;
-            unless ($seen_appenders{$apd_name}++) {
-                $apd_str .= _gen_appender_config($ospec, $apd_name, $filter) . "\n";
-            }
-        }
-        my $l = $cat eq '' ? '' : ".$cat";
-        $cats_str .= "log4perl.logger$l = ".join(",", $level, @apd_names)."\n";
-    }
+    my ($spec) = @_;
 
     my $filters_str = join(
         "",
-        #"log4perl.filter.FilterOFF = Log::Log4perl::Filter::LevelRange\n",
-        #"log4perl.filter.FilterOFF.LevelMin = DEBUG\n",
-        #"log4perl.filter.FilterOFF.LevelMax = FATAL\n",
-        #"log4perl.filter.FilterOFF.AcceptOnMatch = false\n",
-        #"\n",
+        "log4perl.filter.FilterOFF = Log::Log4perl::Filter::LevelRange\n",
+        "log4perl.filter.FilterOFF.LevelMin = TRACE\n",
+        "log4perl.filter.FilterOFF.LevelMax = FATAL\n",
+        "log4perl.filter.FilterOFF.AcceptOnMatch = false\n",
+        "\n",
         map {join(
             "",
             "log4perl.filter.Filter$_ = Log::Log4perl::Filter::LevelRange\n",
@@ -140,64 +108,126 @@ sub _gen_l4p_config {
         )} qw(FATAL ERROR WARN INFO DEBUG), # TRACE
     );
 
-    join(
-        "",
-        "# filters\n", $filters_str,
-        "# categories\n", $cats_str, $add_str, "\n",
-        "# appenders\n", $apd_str,
-    );
-}
+    my %levels; # key = output name; value = { cat => level, ... }
+    my %cats;   # list of categories
+    my %ospecs; # key = oname; this is just a shortcut to get ospec
 
-sub _add_appenders_to_categories {
-    my ($config, $spec) = @_;
-
-    my $cats = $config->{categories};
-
+    # 1. list all levels for each category and output
     for my $ospec (@{ $spec->{dir} },
                    @{ $spec->{file} },
                    @{ $spec->{screen} },
                    @{ $spec->{syslog} }) {
-        my @ospec_cats = _extract_category($ospec);
+        my $oname = $ospec->{name};
+        $ospecs{$oname} = $ospec;
+        $levels{$oname} = {};
+        my %seen_cats;
         if ($ospec->{category_level}) {
-            my %catlevels;
-            for my $cat0 (keys %{ $ospec->{category_level} }) {
-                my @cats = _extract_category($ospec, $cat0);
-                my $level = $ospec->{category_level}{$cat0};
-                for my $cat (@cats) {
-                    #print "D:(1)cat=$cat, name=$ospec->{name}, level=$level\n";
-                    $catlevels{$cat}++;
-                    $cats->{$cat} //= {appenders=>[], level => $level};
-                    push @{ $cats->{$cat}{appenders} },
-                        {ospec=>$ospec, level=>$level};
-                    $cats->{$cat}{level} = _min_level(
-                        $cats->{$cat}{level},
-                        $level
-                    );
+            while (my ($cat0, $level) = each %{ $ospec->{category_level} }) {
+                my @cat = _extract_category($ospec, $cat0);
+                for my $cat (@cat) {
+                    next if $seen_cats{$cat}++;
+                    $cats{$cat}++;
+                    $levels{$oname}{$cat} = $level;
                 }
             }
-            for my $cat (@ospec_cats) {
-                next if $catlevels{$cat};
-                $cats->{$cat} //= {appenders=>[], level => $ospec->{level}};
-                #print "D:(2)cat=$cat, name=$ospec->{name}, level=$ospec->{level}\n";
-                push @{ $cats->{$cat}{appenders} },
-                    {ospec=>$ospec, level=>$ospec->{level}};
-                $cats->{$cat}{level} = _min_level(
-                    $cats->{$cat}{level},
-                    $ospec->{level}
-                );
-            }
-        } else {
-            for my $cat (@ospec_cats) {
-                $cats->{$cat} //= {appenders=>[], level => $ospec->{level}};
-                #print "D:(3)cat=$cat, name=$ospec->{name}, level=$ospec->{level}\n";
-                push @{ $cats->{$cat}{appenders} },
-                    {ospec=>$ospec, level=>$ospec->{level}};
-                $cats->{$cat}{level} = _min_level(
-                    $cats->{$cat}{level},
-                    $ospec->{level});
+        }
+        if ($spec->{category_level}) {
+            while (my ($cat0, $level) = each %{ $spec->{category_level} }) {
+                my @cat = _extract_category($ospec, $cat0);
+                for my $cat (@cat) {
+                    next if $seen_cats{$cat}++;
+                    $cats{$cat}++;
+                    $levels{$oname}{$cat} = $level;
+                }
             }
         }
+        my @cat = _extract_category($ospec);
+        for my $cat (@cat) {
+            next if $seen_cats{$cat}++;
+            $cats{$cat}++;
+            $levels{$oname}{$cat} = $ospec->{level};
+        }
     }
+    #print Dumper \%levels; exit;
+
+    my $find_olevel = sub {
+        my ($oname, $cat) = @_;
+        my $olevel = $levels{$oname}{''};
+        my @c = split /\./, $cat;
+        for (my $i=0; $i<@c; $i++) {
+            my $c = join(".", @c[0..$i]);
+            if ($levels{$oname}{$c}) {
+                $olevel = $levels{$oname}{$c};
+            }
+        }
+        $olevel;
+    };
+
+    # 2. determine level for each category (which is the minimum level of all
+    # appenders for that category)
+    my %cat_configs; # key = cat, value = [catlevel, apdname, ...]
+    my $add_str = '';
+    my $apd_str = '';
+    for my $cat0 (sort {$a cmp $b} keys %cats) {
+        $add_str .= "log4perl.additivity.$cat0 = 0\n" unless $cat0 eq '';
+        my @cats = ($cat0);
+        # since we don't use additivity, we need to add supercategories ourselves
+        while ($cat0 =~ s/\.[^.]+$//) { push @cats, $cat0 }
+        for my $cat (@cats) {
+            my $cat_level;
+            for my $oname (keys %levels) {
+                my $olevel = $find_olevel->($oname, $cat);
+                next unless $olevel;
+                $cat_level //= $olevel;
+                $cat_level = _min_level($cat_level, $olevel);
+            }
+            $cat_configs{$cat} = [uc($cat_level)];
+            #next if $cat_level eq 'off';
+        }
+    }
+    #print Dumper \%cat_configs; exit;
+
+    # 3. add appenders for each category
+    my %generated_appenders; # key = apdname, just a memory hash
+    for my $cat (keys %cat_configs) {
+        my $cat_level = $cat_configs{$cat}[0];
+        for my $oname (keys %levels) {
+            my $ospec = $ospecs{$oname};
+            my $olevel = $find_olevel->($oname, $cat);
+            #print "D:oname=$oname, cat=$cat, olevel=$olevel, cat_level=$cat_level\n";
+            my $apd_name;
+            my $filter;
+            if ($olevel ne $cat_level &&
+                    _min_level($olevel, $cat_level) eq $cat_level) {
+                # we need to filter the appender, since the category level is
+                # lower than the output level
+                $apd_name = $oname . "_" . uc($olevel);
+                $filter = "Filter".uc($olevel);
+            } else {
+                $apd_name = $oname;
+            }
+            unless ($generated_appenders{$apd_name}++) {
+                $apd_str .= _gen_appender_config($ospec, $apd_name, $filter).
+                    "\n";
+            }
+            push @{ $cat_configs{$cat} }, $apd_name;
+        }
+    }
+    #print Dumper \%cat_configs; exit;
+
+    # 4. write out log4perl category line
+    my $cat_str = '';
+    for my $cat (sort {$a cmp $b} keys %cat_configs) {
+        my $l = $cat eq '' ? '' : ".$cat";
+        $cat_str .= "log4perl.logger$l = ".join(", ", @{ $cat_configs{$cat} })."\n";
+    }
+
+    join(
+        "",
+        "# filters\n", $filters_str,
+        "# categories\n", $cat_str, $add_str, "\n",
+        "# appenders\n", $apd_str,
+    );
 }
 
 sub _init_log4perl {
@@ -215,15 +245,7 @@ sub _init_log4perl {
         make_path($dir) if length($dir) && !(-d $dir);
     }
 
-    my $config = {
-        filters => {},
-        appenders => {},
-        categories => {},
-    };
-
-    _add_appenders_to_categories($config, $spec);
-
-    my $config_str = _gen_l4p_config($config);
+    my $config_str = _gen_l4p_config($spec);
     if ($spec->{dump}) {
         print "Log::Any::App configuration:\n",
             Data::Dumper->new([$spec])->Terse(1)->Dump;
@@ -744,7 +766,7 @@ Log::Any::App - An easy way to use Log::Any in applications
 
 =head1 VERSION
 
-version 0.19
+version 0.20
 
 =head1 SYNOPSIS
 
