@@ -1,6 +1,6 @@
 package Log::Any::App;
 BEGIN {
-  $Log::Any::App::VERSION = '0.18';
+  $Log::Any::App::VERSION = '0.19';
 }
 # ABSTRACT: An easy way to use Log::Any in applications
 
@@ -305,8 +305,8 @@ sub _parse_opts {
     }
 
     if (defined $opts{category_level}) {
-        die "category_alias must be a hashref"
-            unless ref($opts{category_alias}) eq 'HASH';
+        die "category_level must be a hashref"
+            unless ref($opts{category_level}) eq 'HASH';
         $spec->{category_level} = {};
         for (keys %{ $opts{category_level} }) {
             $spec->{category_level}{$_} =
@@ -744,7 +744,7 @@ Log::Any::App - An easy way to use Log::Any in applications
 
 =head1 VERSION
 
-version 0.18
+version 0.19
 
 =head1 SYNOPSIS
 

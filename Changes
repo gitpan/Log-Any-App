@@ -1,6 +1,9 @@
 Revision history for Log-Any-App
 
-0.18     2010-11-07
+0.19     2010-11-08
+         - Fixed typo
+
+0.18     2010-11-08
          - New: '-category_alias' option
          - New: 'category_level' option
          - New: 'category' in output spec now accepts array
