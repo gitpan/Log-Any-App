@@ -2,7 +2,7 @@ NAME
     Log::Any::App - An easy way to use Log::Any in applications
 
 VERSION
-    version 0.22
+    version 0.23
 
 SYNOPSIS
         # in your script/application
@@ -168,8 +168,8 @@ USING AND EXAMPLES
 
   Changing log file name/location
     By default Log::Any::App will use ~/$NAME.log (or /var/log/$NAME.log if
-    script is running as root), where $NAME taken from $0, but can be
-    changed using:
+    script is running as root), where $NAME is taken from $0. But this can
+    be changed using:
 
      use Log::Any::App '$log', -name => 'myprog';
 
@@ -197,7 +197,7 @@ USING AND EXAMPLES
      use Net::Daemon; # this indicate your program is a daemon
      use Log::Any::App; # syslog logging will be turned on by default
 
-    but if you don't want syslog logging:
+    but if you are certain you don't want syslog logging:
 
      use Log::Any::App -syslog => 0;
 

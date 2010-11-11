@@ -1,5 +1,8 @@
 Revision history for Log-Any-App
 
+0.23     2010-11-11
+         - Fix test: untaint path for FileRotate [ct]
+
 0.22     2010-11-10
          - Fixed dist.ini (require File::Path 2.07 not yet specified)
 

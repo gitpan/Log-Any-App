@@ -1,6 +1,6 @@
 package Log::Any::App;
 BEGIN {
-  $Log::Any::App::VERSION = '0.22';
+  $Log::Any::App::VERSION = '0.23';
 }
 # ABSTRACT: An easy way to use Log::Any in applications
 
@@ -766,7 +766,7 @@ Log::Any::App - An easy way to use Log::Any in applications
 
 =head1 VERSION
 
-version 0.22
+version 0.23
 
 =head1 SYNOPSIS
 
@@ -937,7 +937,7 @@ command-line options (SCREEN_DEBUG, --screen-verbose, and so on).
 =head2 Changing log file name/location
 
 By default Log::Any::App will use ~/$NAME.log (or /var/log/$NAME.log if script is
-running as root), where $NAME taken from $0, but can be changed using:
+running as root), where $NAME is taken from $0. But this can be changed using:
 
  use Log::Any::App '$log', -name => 'myprog';
 
@@ -966,7 +966,7 @@ Logging to syslog is enabled by default if your script looks like a daemon, e.g.
  use Net::Daemon; # this indicate your program is a daemon
  use Log::Any::App; # syslog logging will be turned on by default
 
-but if you don't want syslog logging:
+but if you are certain you don't want syslog logging:
 
  use Log::Any::App -syslog => 0;
 

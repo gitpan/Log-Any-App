@@ -18,6 +18,9 @@ BEGIN {
     my ($fh);
     ($fh, $f0path) = tempfile();
     ($fh, $f1path) = tempfile();
+    # untaint
+    ($f0path) = $f0path =~ /(.*)/;
+    ($f1path) = $f1path =~ /(.*)/;
 }
 
 use Log::Any::App '$log',
