@@ -9,7 +9,7 @@ use strict;
 use warnings;
 
 use Log::Any::App -dir => 0, -file => 0, -screen => 0, -syslog => 0, -init => 0;
-use Test::More tests => 59;
+use Test::More tests => 63;
 
 test_init(
     name => 'default',
@@ -27,6 +27,10 @@ test_init(
 }
 
 my %vars;
+
+
+
+# TESTING LEVEL
 
 %vars = (
     loglevel  => ["fatal", "fatal"],
@@ -121,6 +125,34 @@ while (my ($k, $v) = each %vars) {
         level => "warn", "$v->[1]_level" => $v->[2],
     ); #2
 } #=4x2
+
+
+
+# TESTING FILE
+
+%vars = (
+    1 => [-file => "/foo/bar"],
+    2 => [-file => {path=>"/foo/bar"}],
+);
+while (my ($k, $v) = each %vars) {
+    test_init(
+        init_args => $v,
+        name => "file path without ending slash assumed as path ($k)",
+        file_params => {path => "/foo/bar"},
+    ); #1
+} #=2x1
+
+%vars = (
+    1 => [-file => "/foo/bar/", -name => 'app'],
+    2 => [-file => {path=>"/foo/bar/"}, -name => 'app'],
+);
+while (my ($k, $v) = each %vars) {
+    test_init(
+        init_args => $v,
+        name => "file path with ending slash assumed as directory ($k)",
+        file_params => {path => "/foo/bar/app.log"},
+    ); #1
+} #=2x1
 
 # XXX priority/overrides (setting via env vs cmdline vs vars vs init args)
 # XXX invalid level dies

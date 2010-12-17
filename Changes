@@ -1,5 +1,9 @@
 Revision history for Log-Any-App
 
+0.24     2010-12-17
+         - If file path ends with a /, it is assumed to be a directory and log
+           name is appended to it
+
 0.23     2010-11-11
          - Fix test: untaint path for FileRotate [ct]
 

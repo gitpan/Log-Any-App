@@ -2,7 +2,7 @@ NAME
     Log::Any::App - An easy way to use Log::Any in applications
 
 VERSION
-    version 0.23
+    version 0.24
 
 SYNOPSIS
         # in your script/application
@@ -357,6 +357,10 @@ FUNCTIONS
         "/var/log/$NAME.log", where $NAME is taken from $0 (or "-name").
         Otherwise the default path is ~/$NAME.log. Intermediate directories
         will be made with File::Path.
+
+        If specified "path" ends with a slash (e.g. "/my/log/"), it is
+        assumed to be a directory and the final file path is directory
+        appended with $NAME.log.
 
         Default rotating behaviour is no rotate (max_size = 0).
 

@@ -1,3 +1,6 @@
+use strict;
+use warnings;
+
 my @n_lower = qw(loglevel log_level);
 my @n_ucfirst = qw(LogLevel Log_Level);
 my @n_uc = qw(LOGLEVEL LOG_LEVEL);
@@ -6,7 +9,7 @@ my @outputs = qw(dir file screen syslog);
 my @s_lower = qw(quiet verbose debug trace);
 my @s_ucfirst = map {ucfirst} @s_lower;
 my @s_uc = map {uc} @s_lower;
-my @s = (@s_lowr, @s_ucfirst, @s_uc);
+my @s = (@s_lower, @s_ucfirst, @s_uc);
 
 my @global_vars = (@n, @s);
 for my $o (@outputs) { push @global_vars, $o."_".$_ for @n_lower }
@@ -88,7 +91,7 @@ sub test_init {
 
 sub _test_params {
     my ($kind, $ospec, $params, $name) = @_;
-    while (my ($k, $v) = each %params) {
+    while (my ($k, $v) = each %$params) {
         if (ref($v) eq 'Regexp') {
             like($ospec->{$k}, $v, "$name: $kind param '$k' matches $v");
         } else {

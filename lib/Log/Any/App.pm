@@ -1,6 +1,6 @@
 package Log::Any::App;
 BEGIN {
-  $Log::Any::App::VERSION = '0.23';
+  $Log::Any::App::VERSION = '0.24';
 }
 # ABSTRACT: An easy way to use Log::Any in applications
 
@@ -401,6 +401,7 @@ sub _parse_opt_OUTPUT {
     my (%args) = @_;
     my $kind = $args{kind};
     my $default_sub = $args{default_sub};
+    my $postprocess = $args{postprocess};
     my $spec = $args{spec};
     my $arg = $args{arg};
 
@@ -427,6 +428,8 @@ sub _parse_opt_OUTPUT {
         }
         $spec->{$kind}[-1]{main_spec} = $spec;
         _set_pattern($spec->{$kind}[-1], $kind);
+        $postprocess->(spec => $spec, ospec => $spec->{$kind}[-1])
+            if $postprocess;
     } elsif (ref($arg) eq 'ARRAY') {
         for (@$arg) {
             _parse_opt_OUTPUT(%args, arg => $_);
@@ -467,6 +470,18 @@ sub _parse_opt_file {
     _parse_opt_OUTPUT(
         kind => 'file', default_sub => \&_default_file,
         spec => $spec, arg => $arg,
+        postprocess => sub {
+            my (%args) = @_;
+            my $spec  = $args{spec};
+            my $ospec = $args{ospec};
+            if ($ospec->{path} =~ m!/$!) {
+                my $p = $ospec->{path};
+                $p .= "$spec->{name}.log";
+                _debug("File path ends with /, assumed to be dir, ".
+                           "final path becomes $p");
+                $ospec->{path} = $p;
+            }
+        },
     );
 }
 
@@ -766,7 +781,7 @@ Log::Any::App - An easy way to use Log::Any in applications
 
 =head1 VERSION
 
-version 0.23
+version 0.24
 
 =head1 SYNOPSIS
 
@@ -1138,6 +1153,9 @@ If the program runs as root, the default path is
 C</var/log/$NAME.log>, where $NAME is taken from B<$0> (or
 C<-name>). Otherwise the default path is ~/$NAME.log. Intermediate
 directories will be made with L<File::Path>.
+
+If specified C<path> ends with a slash (e.g. "/my/log/"), it is assumed to be a
+directory and the final file path is directory appended with $NAME.log.
 
 Default rotating behaviour is no rotate (max_size = 0).
 
