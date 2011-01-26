@@ -1,6 +1,6 @@
 package Log::Any::App;
 BEGIN {
-  $Log::Any::App::VERSION = '0.24';
+  $Log::Any::App::VERSION = '0.25';
 }
 # ABSTRACT: An easy way to use Log::Any in applications
 
@@ -763,9 +763,15 @@ sub import {
     $init_args = \@args;
 }
 
-INIT {
-    my $caller = caller();
-    init($init_args, $caller);
+{
+    no warnings;
+    # if we are loaded at run-time, it's too late to run INIT blocks, so user
+    # must call init() manually. but sometimes this is what the user wants. so
+    # shut up perl warning.
+    INIT {
+        my $caller = caller();
+        init($init_args, $caller);
+    }
 }
 
 
@@ -781,7 +787,7 @@ Log::Any::App - An easy way to use Log::Any in applications
 
 =head1 VERSION
 
-version 0.24
+version 0.25
 
 =head1 SYNOPSIS
 
@@ -1050,16 +1056,22 @@ came to be, set environment LOGANYAPP_DEBUG to true.
 
 =head2 init(\@args)
 
-This is the actual function that implements the setup and
-configuration of logging. You normally need not call this function
-explicitly, it will be called once in an INIT block. In fact, when you
-do:
+This is the actual function that implements the setup and configuration of
+logging. You normally need not call this function explicitly (but see below), it
+will be called once in an INIT block. In fact, when you do:
 
  use Log::Any::App 'a', 'b', 'c';
 
 it is actually passed as:
 
  init(['a', 'b', 'c']);
+
+You will need to call init() manually if you require Log::Any::App at runtime,
+in which case it is too late to run INIT block. If you want to run Log::Any::App
+in runtime phase, do this:
+
+ require Log::Any::App;
+ Log::Any::App::init(['a', 'b', 'c']);
 
 Arguments to init can be one or more of:
 
@@ -1377,7 +1389,7 @@ Steven Haryanto <stevenharyanto@gmail.com>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2010 by Steven Haryanto.
+This software is copyright (c) 2011 by Steven Haryanto.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.
