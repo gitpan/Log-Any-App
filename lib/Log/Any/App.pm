@@ -1,6 +1,6 @@
 package Log::Any::App;
 BEGIN {
-  $Log::Any::App::VERSION = '0.26';
+  $Log::Any::App::VERSION = '0.27';
 }
 # ABSTRACT: An easy way to use Log::Any in applications
 
@@ -275,6 +275,7 @@ sub _dirname {
 sub _parse_args {
     my ($args, $caller) = @_;
     $args //= []; # if we don't import(), we never get args
+
     my $i = 0;
     while ($i < @$args) {
         my $arg = $args->[$i];
@@ -290,6 +291,7 @@ sub _parse_args {
 
 sub _parse_opts {
     my ($args, $caller) = @_;
+    $args //= []; # if we don't import(), we never get args
 
     my $spec = {
         name => _basename($0),
@@ -788,7 +790,7 @@ Log::Any::App - An easy way to use Log::Any in applications
 
 =head1 VERSION
 
-version 0.26
+version 0.27
 
 =head1 SYNOPSIS
 
