@@ -1,5 +1,8 @@
 Revision history for Log-Any-App
 
+0.26     2011-02-16
+         - Avoid error when Log::Any::App is require'd without import.
+
 0.25     2011-01-26
          - Silence Perl's "Too late to run INIT block" warning
          - Add some documentation about require()-ing Log::Any::App in runtime
