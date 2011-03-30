@@ -1,5 +1,13 @@
 Revision history for Log-Any-App
 
+0.28     2011-03-30
+
+         [ENHANCEMENTS]
+
+         - Add arguments for file: date_pattern, tz (requested by
+           an0nym0us_m0nk)
+
+
 0.27     2011-02-16
          - Incomplete fix in 0.26
 

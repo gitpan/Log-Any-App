@@ -2,7 +2,7 @@ NAME
     Log::Any::App - An easy way to use Log::Any in applications
 
 VERSION
-    version 0.27
+    version 0.28
 
 SYNOPSIS
         # in your script/application
@@ -347,8 +347,10 @@ FUNCTIONS
         hashref must be one of: "level", "path", "max_size" (maximum size
         before rotating, in bytes, 0 means unlimited or never rotate),
         "histories" (number of old files to keep, excluding the current
-        file), "category" (a string of ref to array of strings),
-        "category_level" (a hashref, similar to -category_level),
+        file), "date_pattern" (will be passed to DatePattern argument in
+        FileRotate's constructor), "tz" (will be passed to TZ argument in
+        FileRotate's constructor), "category" (a string of ref to array of
+        strings), "category_level" (a hashref, similar to -category_level),
         "pattern_style" (see "PATTERN STYLES"), "pattern" (Log4perl
         pattern).
 
