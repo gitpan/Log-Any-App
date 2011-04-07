@@ -2,30 +2,56 @@ NAME
     Log::Any::App - An easy way to use Log::Any in applications
 
 VERSION
-    version 0.28
+    version 0.29
 
 SYNOPSIS
-        # in your script/application
-        use Log::Any::App qw($log);
+    Most of the time you only need to do this:
 
-        # or, in command line
-        % perl -MLog::Any::App -MModuleThatUsesLogAny -e ...
+     # in your script.pl
+     use Log::Any::App '$log';
+     $log->warn("blah ...");
+     if ($log->is_debug) { ... }
+
+     # or, in command line
+     % perl -MLog::Any::App -MModuleThatUsesLogAny -e'...'
+
+    You then customize level using environment variables or command-line
+    options (won't interfere with command-line processing modules like
+    Getopt::Long etc):
+
+     % DEBUG=1 script.pl
+     % LOG_LEVEL=trace script.pl
+     % script.pl --verbose
+
+    But if you need to customize level (and other stuffs) from the script,
+    you can:
+
+     use Log::Any::App '$log',
+         -syslog => 1, # turn on syslog logging, default is autodetect
+         -screen => 0, # turn off screen logging, default is on
+         -file   => {path=>'/foo/bar', rotate=>'10M', histories=>10};
+                    # customize file logging, default file logging is on unless -e
+
+    For more customization like categories, per-category level, per-output
+    level, multiple outputs, string patterns, etc see "USING AND EXAMPLES".
+    For details on how Log::Any::App chooses defaults, read documentation on
+    init().
 
 DESCRIPTION
-    Log::Any makes life easy for module authors. All you need to do is:
+    Log::Any::App is a convenient combo for Log::Any and Log::Log4perl
+    (although alternative backends beside Log4perl might be considered in
+    the future). To use Log::Any::App you need to be sold on the idea of
+    Log::Any first, so please do a read up on that first.
 
-     use Log::Any qw($log);
+    The goal of Log::Any::App is to provide developers an easy and concise
+    way to add logging to their *applications*. That is, instead of modules;
+    modules remain using Log::Any to produce logs. Applications can upgrade
+    to full Log4perl later when necessary, although in my experience, they
+    usually don't.
 
-    and you're off producing logs with $log->debug(), $log->info(),
-    $log->error(), etc. That's it. The task of consuming logs (setting up
-    each output, deciding which messages gets to which output, etc) rests on
-    the shoulder of module users.
+    With Log::Any::App, you can replace this code in your application:
 
-    Life is not equally easy for the module users (or application authors)
-    though. The typical incantation to consume logs (assuming we use the
-    Log::Log4perl adapter) is:
-
-     use Log::Any qw($log);
+     use Log::Any '$log';
      use Log::Any::Adapter;
      use Log::Log4perl;
      my $log4perl_config = '
@@ -36,45 +62,34 @@ DESCRIPTION
      Log::Log4perl->init(\$log4perl_config);
      Log::Any::Adapter->set('Log4perl');
 
-    Frankly, I couldn't possibly remember all that (especially the details
-    of Log4perl configuration), hence Log::Any::App. The goal of
-    Log::Any::App is to make life equally easy for log consumers. All you
-    need to do is:
+    with just this:
 
-     use Log::Any::App qw($log);
+     use Log::Any::App '$log'; # plus some other options when necessary
 
-    or, from the command line:
-
-     perl -MLog::Any::App='$log' -MModuleThatUsesLogAny -e ...
-
-    and you can display the logs in screen, file(s), syslog, etc. You can
-    also log using $log->debug(), etc as usual. Most of the time you don't
-    need to configure anything as Log::Any::App will construct the most
-    appropriate default Log4perl config for your application.
-
-    I mostly use Log::Any;:App in oneliners and simple to medium scripts
-    whenever I have to use Log::Any-using modules (for example: Data::Schema
-    and Config::Tree).
+    Most of the time you don't need to configure anything as Log::Any::App
+    will construct the most appropriate default Log4perl configuration for
+    your application.
 
 USING AND EXAMPLES
-    Using Log::Any::App is very easy. Most of the time you just need to do
-    this from command line:
+    To use Log::Any::App, just do:
+
+     use Log::Any::App '$log';
+
+    or from the command line:
 
      % perl -MLog::Any::App -MModuleThatUsesLogAny -e ...
 
-    or from a script:
-
-     use ModuleThatUsesLogAny;
-     use Log::Any::App '$log';
-
-    This will send logs to screen as well as file (~/$SCRIPT_NAME.log or
-    /var/log/$SCRIPT_NAME.log if running as root, command-line scripts by
-    default do not log to file) with the default level of 'warn'. This means
-    $log->error("foo") will display, while $log->info("bar") will not.
+    This will send logs to screen as well as file (unless -e scripts, which
+    only logs to screen). Default log file is ~/$SCRIPT_NAME.log, or
+    /var/log/$SCRIPT_NAME.log if script is running as root. Default level is
+    'warn'.
 
     The 'use Log::Any::App' statement can be issued before or after the
     modules that use Log::Any, it doesn't matter. Logging will be
-    initialized in the INIT phase.
+    initialized in the INIT phase by Log::Any::App.
+
+    You are not required to import '$log', and don't need to if you do not
+    produce logs in your application (only in the modules).
 
   Changing logging level
     Changing logging level can be done from the script or outside the
@@ -83,17 +98,17 @@ USING AND EXAMPLES
      use Log::Any::App '$log', -level => 'debug';
 
     but oftentimes what you want is changing level without modifying the
-    script itself. So leave it to Log::Any::App to determine level:
+    script itself.
 
      use Log::Any::App '$log';
 
     and then you can use environment variable:
 
-     TRACE=1 script.pl;       # setting level to trace
-     DEBUG=1 script.pl;       # setting level to debug
-     VERBOSE=1 script.pl;     # setting level to info
-     QUIET=1 script.pl;       # setting level to error
-     LOG_LEVEL=... script.pl; # setting a specific log level
+     TRACE=1 script.pl;         # setting level to trace
+     DEBUG=1 script.pl;         # setting level to debug
+     VERBOSE=1 script.pl;       # setting level to info
+     QUIET=1 script.pl;         # setting level to error
+     LOG_LEVEL=trace script.pl; # setting a specific log level
 
     or command-line options:
 
@@ -103,8 +118,11 @@ USING AND EXAMPLES
      script.pl --quiet
      script.pl --log_level=debug;   # '--log-level debug' will also do
 
-    Log::Any::App won't interfere with command-line processing modules like
-    Getopt::Long or App::Options.
+    Log::Any::App won't consume the command-line options from @ARGV and thus
+    won't interfere with command-line processing modules like Getopt::Long
+    or App::Options. You might want to define these options in your option
+    processing module though, or it might complain about unknown options. Or
+    alternatively you can use environment variables instead.
 
   Changing default level
     The default log level is 'warn'. You can change this using:
@@ -141,7 +159,7 @@ USING AND EXAMPLES
      use Log::Any::App '$log';
      BEGIN {
          our $Screen_Log_Level = 'off';
-         our $File_Quiet = 1; # setting level to 'error'
+         our $File_Quiet = 1; # setting file level to 'error'
          # and so on
      }
 
@@ -163,13 +181,14 @@ USING AND EXAMPLES
      use Log::Any::App;
      BEGIN { our $Screen_Log_Level = 'off' }
 
-    then you will be able to override the screen log level using environment
-    or command-line options (SCREEN_DEBUG, --screen-verbose, and so on).
+    then by default screen logging is turned off but you will be able to
+    override the screen log level using environment or command-line options
+    (SCREEN_DEBUG, --screen-verbose, and so on).
 
   Changing log file name/location
     By default Log::Any::App will use ~/$NAME.log (or /var/log/$NAME.log if
-    script is running as root), where $NAME is taken from $0. But this can
-    be changed using:
+    script is running as root), where $NAME is taken from the basename of
+    $0. But this can be changed using:
 
      use Log::Any::App '$log', -name => 'myprog';
 
@@ -213,10 +232,11 @@ USING AND EXAMPLES
 
   Multiple outputs
     Each output argument can accept an arrayref to specify more than one
-    output, example:
+    output. For example below is a code to log to three files:
 
      use Log::Any::App '$log',
-         -file => ["/var/log/log1",
+         -file => [1, # the default file logging to ~/$NAME.log
+                   "/var/log/log1",
                    {path=>"/var/log/debug_foo", category=>'Foo', level=>'debug'}];
 
   Changing level of a certain module
@@ -252,13 +272,15 @@ USING AND EXAMPLES
   Preventing logging level to be changed from outside the script
     Sometimes, for security/audit reasons, you don't want to allow script
     caller to change logging level. To do so, just specify the 'level'
-    option in the script during 'use' statement:
+    option in the script during 'use' statement.
 
   Debugging
     To see the Log4perl configuration that is generated by Log::Any::App and
     how it came to be, set environment LOGANYAPP_DEBUG to true.
 
 FUNCTIONS
+    None is exported.
+
   init(\@args)
     This is the actual function that implements the setup and configuration
     of logging. You normally need not call this function explicitly (but see
@@ -547,7 +569,8 @@ FAQ
     Log4perl and (currently) not vice versa.
 
     Other adapters might be considered in the future, for now I'm fairly
-    satisfied with Log4perl.
+    satisfied with Log4perl. It does have a slightly heavy startup cost for
+    my taste, but it is still bearable.
 
     Note that producing logs are still done with Log::Any as usual and not
     tied to Log4perl in any way.
@@ -570,9 +593,11 @@ BUGS/TODOS
     Probably: SCREEN0_DEBUG, --file1-log-level, etc.
 
 SEE ALSO
-    Log::Any
+    Log::Any and Log::Log4perl
 
-    Log::Log4perl
+    Some alternative logging modules: Log::Dispatchouli (based on
+    Log::Dispatch), Log::Fast, Log::Log4perl::Tiny. Really, there are around
+    7,451 of them (roughly one third of CPAN, at the time of this writing).
 
 AUTHOR
     Steven Haryanto <stevenharyanto@gmail.com>
