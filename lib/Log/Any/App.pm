@@ -1,6 +1,6 @@
 package Log::Any::App;
 BEGIN {
-  $Log::Any::App::VERSION = '0.30';
+  $Log::Any::App::VERSION = '0.31';
 }
 # ABSTRACT: An easy way to use Log::Any in applications
 
@@ -809,7 +809,7 @@ Log::Any::App - An easy way to use Log::Any in applications
 
 =head1 VERSION
 
-version 0.30
+version 0.31
 
 =head1 SYNOPSIS
 
@@ -823,15 +823,14 @@ Most of the time you only need to do this:
  # or, in command line
  % perl -MLog::Any::App -MModuleThatUsesLogAny -e'...'
 
-Here's the default logging that Log::Any::App setups for you (all can be
-customized):
+Here's the default logging that Log::Any::App sets up for you:
 
  Condition                        screen  file               syslog        dir
  --------------------------------+-------+------------------+-------------+---
  -e (one-liners)                  y       -                  -             -
  Scripts running as normal user   y       ~/NAME.log         -             -
  Scripts running as root          y       /var/log/NAME.log  -             -
- Daemons                          -       y                  -             -
+ Daemons                          -       y                  y             -
 
 You can customize level from outside the script, using environment variables or
 command-line options (won't interfere with command-line processing modules like
@@ -841,17 +840,16 @@ Getopt::Long etc):
  % LOG_LEVEL=trace script.pl
  % script.pl --verbose
 
-But if you need to customize level (and other stuffs) from the script, you can:
+And to customize other stuffs:
 
  use Log::Any::App '$log',
-     -syslog => 1, # turn on syslog logging, default is autodetect
-     -screen => 0, # turn off screen logging, default is on
+     -syslog => 1, # turn on syslog logging explicitly
+     -screen => 0, # turn off screen logging explicitly
      -file   => {path=>'/foo/bar', max_size=>'10M', histories=>10};
-                # customize file logging, default file logging is on unless -e
+                # customize file logging
 
 For more customization like categories, per-category level, per-output level,
-multiple outputs, string patterns, etc see L</USING AND EXAMPLES>. For details
-on how Log::Any::App chooses defaults, read documentation on init().
+multiple outputs, string patterns, etc see L</USING AND EXAMPLES> and init().
 
 =head1 DESCRIPTION
 
