@@ -9,7 +9,7 @@ use strict;
 use warnings;
 
 use Log::Any::App -dir => 0, -file => 0, -screen => 0, -syslog => 0, -init => 0;
-use Test::More tests => 63;
+use Test::More tests => 68;
 
 test_init(
     name => 'default',
@@ -154,10 +154,48 @@ while (my ($k, $v) = each %vars) {
     ); #1
 } #=2x1
 
+# TESTING SCREEN
+{
+    local $INC{"Net/Daemon.pm"} = 1;
+    test_init(
+        name => "screen default: off if daemon",
+        num_screens => 0,
+    );
+}
+
+# TESTING SYSLOG
+
+{
+    local $INC{"Net/Daemon.pm"} = 1;
+    test_init(
+        name => "syslog default: on if daemon (\$INC{'Net/Daemon.pm'})",
+        num_syslogs => 1,
+    );
+}
+{
+    local $::IS_DAEMON = 1;
+    test_init(
+        name => "syslog default: on if declaring as daemon (\$main::IS_DAEMON)",
+        num_syslogs => 1,
+    );
+}
+test_init(
+    name => "syslog default: on if declaring as daemon (-daemon)",
+    init_args => [-daemon => 1],
+    num_syslogs => 1,
+);
+{
+    local $INC{"Net/Daemon.pm"} = 1;
+    test_init(
+        name => "syslog default: off if declaring as not daemon",
+        init_args => [-daemon => 0],
+        num_syslogs => 0,
+    );
+}
+
 # XXX priority/overrides (setting via env vs cmdline vs vars vs init args)
 # XXX invalid level dies
 # XXX syslog & dir: setting level
-# XXX syslog: daemon automatically gets syslog
 # XXX file: default path
 # XXX dir: default path
 # XXX screen: default color

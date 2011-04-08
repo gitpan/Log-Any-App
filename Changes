@@ -1,12 +1,28 @@
 Revision history for Log-Any-App
 
+0.30     2011-04-08
+
+         [INCOMPATIBLE CHANGES]
+
+         - Screen logging is by default turned off for daemons.
+
+         [ENHANCEMENTS]
+
+         - Scripts can declare if they are (or aren't) daemons using -daemon, or
+           $main::IS_DAEMON.
+
+         [DOCUMENTATION]
+
+         - Add summary table in Synopsis (suggested by David Golden).
+
+
 0.29     2011-04-07
 
          No functional changes.
 
-         [ETC]
+         [DOCUMENTATION]
 
-         - Revise documentation. Better SYNOPSIS and DESCRIPTION, I hope.
+         - Revise documentation. Better Synopsis and Description, I hope.
 
 
 0.28     2011-03-30

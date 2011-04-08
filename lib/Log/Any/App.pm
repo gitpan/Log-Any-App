@@ -1,6 +1,6 @@
 package Log::Any::App;
 BEGIN {
-  $Log::Any::App::VERSION = '0.29';
+  $Log::Any::App::VERSION = '0.30';
 }
 # ABSTRACT: An easy way to use Log::Any in applications
 
@@ -33,6 +33,7 @@ my %PATTERN_STYLES = (
 
 my $init_args;
 our $init_called;
+my $is_daemon;
 
 sub init {
     return if $init_called++;
@@ -300,6 +301,7 @@ sub _parse_opts {
         name => _basename($0),
         init => 1,
         dump => ($ENV{LOGANYAPP_DEBUG} ? 1:0),
+        daemon => 0,
         category_alias => {},
     };
 
@@ -353,6 +355,12 @@ sub _parse_opts {
         delete $opts{name};
     }
 
+    if (defined $opts{daemon}) {
+        $spec->{daemon} = $opts{daemon};
+        $is_daemon = $opts{daemon};
+        delete $opts{daemon};
+    }
+
     if (defined $opts{dump}) {
         $spec->{dump} = 1;
         delete $opts{dump};
@@ -367,7 +375,7 @@ sub _parse_opts {
     delete $opts{dir};
 
     $spec->{screen} = [];
-    _parse_opt_screen($spec, $opts{screen} // 1);
+    _parse_opt_screen($spec, $opts{screen} // (!_is_daemon()));
     delete $opts{screen};
 
     $spec->{syslog} = [];
@@ -385,21 +393,27 @@ sub _parse_opts {
 }
 
 sub _is_daemon {
-    $INC{"App/Daemon.pm"} ||
-    $INC{"Daemon/Easy.pm"} ||
-    $INC{"Daemon/Daemonize.pm"} ||
-    $INC{"Daemon/Generic.pm"} ||
-    $INC{"Daemonise.pm"} ||
-    $INC{"Daemon/Simple.pm"} ||
-    $INC{"HTTP/Daemon.pm"} ||
-    $INC{"IO/Socket/INET/Daemon.pm"} ||
-    $INC{"Mojo/Server/Daemon.pm"} ||
-    $INC{"MooseX/Daemonize.pm"} ||
-    $INC{"Net/Daemon.pm"} ||
-    $INC{"Net/Server.pm"} ||
-    $INC{"Proc/Daemon.pm"} ||
-    $INC{"Proc/PID/File.pm"} ||
-    $INC{"Win32/Daemon/Simple.pm"} ||
+    $is_daemon //
+    $main::IS_DAEMON //
+
+    (
+        $INC{"App/Daemon.pm"} ||
+        $INC{"Daemon/Easy.pm"} ||
+        $INC{"Daemon/Daemonize.pm"} ||
+        $INC{"Daemon/Generic.pm"} ||
+        $INC{"Daemonise.pm"} ||
+        $INC{"Daemon/Simple.pm"} ||
+        $INC{"HTTP/Daemon.pm"} ||
+        $INC{"IO/Socket/INET/Daemon.pm"} ||
+        $INC{"Mojo/Server/Daemon.pm"} ||
+        $INC{"MooseX/Daemonize.pm"} ||
+        $INC{"Net/Daemon.pm"} ||
+        $INC{"Net/Server.pm"} ||
+        $INC{"Proc/Daemon.pm"} ||
+        $INC{"Proc/PID/File.pm"} ||
+        $INC{"Win32/Daemon/Simple.pm"}
+    ) //
+
     0;
 }
 
@@ -795,7 +809,7 @@ Log::Any::App - An easy way to use Log::Any in applications
 
 =head1 VERSION
 
-version 0.29
+version 0.30
 
 =head1 SYNOPSIS
 
@@ -809,8 +823,19 @@ Most of the time you only need to do this:
  # or, in command line
  % perl -MLog::Any::App -MModuleThatUsesLogAny -e'...'
 
-You then customize level using environment variables or command-line options
-(won't interfere with command-line processing modules like Getopt::Long etc):
+Here's the default logging that Log::Any::App setups for you (all can be
+customized):
+
+ Condition                        screen  file               syslog        dir
+ --------------------------------+-------+------------------+-------------+---
+ -e (one-liners)                  y       -                  -             -
+ Scripts running as normal user   y       ~/NAME.log         -             -
+ Scripts running as root          y       /var/log/NAME.log  -             -
+ Daemons                          -       y                  -             -
+
+You can customize level from outside the script, using environment variables or
+command-line options (won't interfere with command-line processing modules like
+Getopt::Long etc):
 
  % DEBUG=1 script.pl
  % LOG_LEVEL=trace script.pl
@@ -821,7 +846,7 @@ But if you need to customize level (and other stuffs) from the script, you can:
  use Log::Any::App '$log',
      -syslog => 1, # turn on syslog logging, default is autodetect
      -screen => 0, # turn off screen logging, default is on
-     -file   => {path=>'/foo/bar', rotate=>'10M', histories=>10};
+     -file   => {path=>'/foo/bar', max_size=>'10M', histories=>10};
                 # customize file logging, default file logging is on unless -e
 
 For more customization like categories, per-category level, per-output level,
@@ -836,7 +861,7 @@ future). To use Log::Any::App you need to be sold on the idea of Log::Any first,
 so please do a read up on that first.
 
 The goal of Log::Any::App is to provide developers an easy and concise way to
-add logging to their L<*applications*>. That is, instead of modules; modules
+add logging to their I<*applications*>. That is, instead of modules; modules
 remain using Log::Any to produce logs. Applications can upgrade to full Log4perl
 later when necessary, although in my experience, they usually don't.
 
@@ -871,9 +896,9 @@ or from the command line:
 
  % perl -MLog::Any::App -MModuleThatUsesLogAny -e ...
 
-This will send logs to screen as well as file (unless -e scripts, which only
-logs to screen). Default log file is ~/$SCRIPT_NAME.log, or
-/var/log/$SCRIPT_NAME.log if script is running as root. Default level is 'warn'.
+This will send logs to screen as well as file (unless -e scripts, which only log
+to screen). Default log file is ~/$SCRIPT_NAME.log, or /var/log/$SCRIPT_NAME.log
+if script is running as root. Default level is 'warn'.
 
 The 'use Log::Any::App' statement can be issued before or after the modules that
 use Log::Any, it doesn't matter. Logging will be initialized in the INIT phase
@@ -1000,7 +1025,7 @@ example:
  use Log::Any::App '$log',
      -screen => {color=>0},   # never use color
      -file   => {path=>'/var/log/foo',
-                 rotate=>'10M',
+                 max_size=>'10M',
                  histories=>10,
                 },
 
@@ -1008,13 +1033,19 @@ For all the available options of each output, see the init() function.
 
 =head2 Logging to syslog
 
-Logging to syslog is enabled by default if your script looks like a daemon,
-e.g.:
+Logging to syslog is enabled by default if your script looks like or declare
+that it is a daemon, e.g.:
 
  use Net::Daemon; # this indicate your program is a daemon
  use Log::Any::App; # syslog logging will be turned on by default
 
-but if you are certain you don't want syslog logging:
+ use Log::Any::App -daemon => 1; # script declares that it is a daemon
+
+ # idem
+ package main;
+ our $IS_DAEMON = 1;
+
+But if you are certain you don't want syslog logging:
 
  use Log::Any::App -syslog => 0;
 
@@ -1034,7 +1065,7 @@ Each output argument can accept an arrayref to specify more than one output. For
 example below is a code to log to three files:
 
  use Log::Any::App '$log',
-     -file => [1, # the default file logging to ~/$NAME.log
+     -file => [1, # default, to ~/$NAME.log or /var/log/$NAME.log
                "/var/log/log1",
                {path=>"/var/log/debug_foo", category=>'Foo', level=>'debug'}];
 
@@ -1065,9 +1096,9 @@ screen:
  use Log::Any::App '$log',
      -category_alias => { -noisy => [qw/Foo Bar::Baz Qux/] },
      -category_level => { -noisy => 'off' },
-     -syslog => 1,
-     -file   => "/var/log/foo",
-     -screen => { category_level => {} }; # do not do per-category level
+     -syslog => 1,                        # uses general -category_level
+     -file   => "/var/log/foo",           # uses general -category_level
+     -screen => { category_level => {} }; # overrides general -category_level
 
 =head2 Preventing logging level to be changed from outside the script
 
@@ -1117,6 +1148,11 @@ module, right?)
 =item -name => STRING
 
 Change the program name. Default is taken from $0.
+
+=item -daemon => BOOL
+
+Declare that script is a daemon. Default is no. Aside from this, to declare that
+your script is a daemon you can also set $main::IS_DAEMON to true.
 
 =item -category_alias => {ALIAS=>CATEGORY, ...}
 
@@ -1281,8 +1317,9 @@ C<pattern_style> (see L<"PATTERN STYLES">), C<pattern> (Log4perl pattern).
 How Log::Any::App determines defaults for syslog logging:
 
 If a program is a daemon (determined by detecting modules like L<Net::Server> or
-L<Proc::PID::File>) then syslog logging is turned on by default and facility is
-set to C<daemon>, otherwise the default is off.
+L<Proc::PID::File>, or by checking if -daemon or $main::IS_DAEMON is true) then
+syslog logging is turned on by default and facility is set to C<daemon>,
+otherwise the default is off.
 
 Ident is program's name by default ($0, or C<-name>).
 
@@ -1345,18 +1382,23 @@ If you have a favorite pattern style, please do share them.
 
 =head1 FAQ
 
+=head2 Why?
+
+I initially wrote Log::Any::App because I'm sick of having to parse command-line
+options to set log level like --verbose, --log-level=debug for every script.
+Also, before using Log::Any I previously used Log4perl directly and modules
+which produce logs using Log4perl cannot be directly use'd in one-liners without
+Log4perl complaining about uninitialized configuration or some such. Thus, I
+like Log::Any's default null adapter and want to settle using Log::Any for any
+kind of logging. Log::Any::App makes it easy to output Log::Any logs in your
+scripts and even one-liners.
+
 =head2 What's the benefit of using Log::Any::App?
 
 You get all the benefits of Log::Any, as what Log::Any::App does is just wrap
-Log::Any and L<Log::Log4perl> with some nice defaults. It provides you with an
-easy way to consume Log::Any logs and customize level/some other options via
-various ways.
-
-You still produce logs with Log::Any so later should portions of your
-application code get refactored into modules, you don't need to change the
-logging part. And if your application becomes more complex and Log::Any::App
-doesn't suffice your custom logging needs anymore, you can just replace 'use
-Log::Any::App' line with something more adequate.
+Log::Any and Log4perl with some nice defaults. It provides you with an easy way
+to consume Log::Any logs and customize level/some other options via various
+ways.
 
 =head2 And what's the benefit of using Log::Any?
 
@@ -1379,8 +1421,16 @@ Other adapters might be considered in the future, for now I'm fairly satisfied
 with Log4perl. It does have a slightly heavy startup cost for my taste, but it
 is still bearable.
 
-Note that producing logs are still done with Log::Any as usual and not tied to
-Log4perl in any way.
+=head2 Are you coupling adapter with Log::Any (thus defeating Log::Any's purpose)?
+
+No, producing logs are still done with Log::Any as usual and not tied to
+Log4perl in any way. Your modules, as explained above, only 'use Log::Any' and
+do not depend on Log::Any::App at all.
+
+Should portions of your application code get refactored into modules later, you
+don't need to change the logging part. And if your application becomes more
+complex and Log::Any::App doesn't suffice your custom logging needs anymore, you
+can just replace 'use Log::Any::App' line with something more adequate.
 
 =head2 How do I create extra logger objects?
 
@@ -1390,10 +1440,10 @@ The usual way as with Log::Any:
 
 =head2 My needs are not met by the simple configuration system of Log::Any::App!
 
-You can use Log4perl adapter directly and write your own Log4perl configuration
-(or even other adapters). Log::Any::App is meant for quick and simple logging
-output needs anyway (but do tell me if your logging output needs are reasonably
-simple and should be supported by Log::Any::App).
+You can use the Log4perl adapter directly and write your own Log4perl
+configuration (or even other adapters). Log::Any::App is meant for quick and
+simple logging output needs anyway (but do tell me if your logging output needs
+are reasonably simple and should be supported by Log::Any::App).
 
 =head1 BUGS/TODOS
 
