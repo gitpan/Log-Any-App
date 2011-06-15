@@ -1,6 +1,6 @@
 package Log::Any::App;
 BEGIN {
-  $Log::Any::App::VERSION = '0.31';
+  $Log::Any::App::VERSION = '0.32';
 }
 # ABSTRACT: An easy way to use Log::Any in applications
 
@@ -525,7 +525,7 @@ sub _default_dir {
         category => '',
         pattern_style => 'plain',
         pattern => undef,
-        filename_pattern => 'pid-%{pid}-%Y-%m-%d-%H%M%S.txt',
+        filename_pattern => undef,
     };
 }
 
@@ -809,7 +809,7 @@ Log::Any::App - An easy way to use Log::Any in applications
 
 =head1 VERSION
 
-version 0.31
+version 0.32
 
 =head1 SYNOPSIS
 
@@ -1069,8 +1069,9 @@ example below is a code to log to three files:
 
 =head2 Changing level of a certain module
 
-Suppose you want to shut up Foo, Bar::Baz, and Qux's logging because they are
-too noisy:
+Suppose you want to shut up logs from modules Foo, Bar::Baz, and Qux (and their
+submodules as well, e.g. Foo::Alpha, Bar::Baz::Beta::Gamma) because they are too
+noisy:
 
  use Log::Any::App '$log',
      -category_level => { Foo => 'off', 'Bar::Baz' => 'off', Qux => 'off' };
@@ -1165,7 +1166,7 @@ each output's category specification. For example, instead of doing this:
 you can do this instead:
 
  init(
-     -category_alias => {_fbb => [qw/Foo Bar Baz/]},
+     -category_alias => {-fbb => [qw/Foo Bar Baz/]},
      -file   => [category=>'-fbb', ...],
      -screen => [category=>'-fbb', ...],
  );
@@ -1454,8 +1455,8 @@ Probably: SCREEN0_DEBUG, --file1-log-level, etc.
 L<Log::Any> and L<Log::Log4perl>
 
 Some alternative logging modules: L<Log::Dispatchouli> (based on
-L<Log::Dispatch>), L<Log::Fast>, L<Log::Log4perl::Tiny>. Really, there are
-around 7,451 of them (roughly one third of CPAN, at the time of this writing).
+L<Log::Dispatch>), L<Log::Fast>, L<Log::Log4perl::Tiny>. Really, there are 7,451
+of them (roughly one third of CPAN) at the time of this writing.
 
 =head1 AUTHOR
 

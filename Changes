@@ -1,5 +1,11 @@
 Revision history for Log-Any-App
 
+0.32     2011-06-15
+
+         Require Log::Dispatch::Dir 0.08. Use default filename_pattern from
+         Log::Dispatch::Dir.
+
+
 0.31     2011-04-08
 
          No functional changes.

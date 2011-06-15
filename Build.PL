@@ -21,7 +21,7 @@ my %module_build_args = (
     'Steven Haryanto <stevenharyanto@gmail.com>'
   ],
   'dist_name' => 'Log-Any-App',
-  'dist_version' => '0.31',
+  'dist_version' => '0.32',
   'license' => 'perl',
   'module_name' => 'Log::Any::App',
   'recommends' => {},
@@ -35,6 +35,7 @@ my %module_build_args = (
     'Log::Any' => '0.11',
     'Log::Any::Adapter' => '0',
     'Log::Any::Adapter::Log4perl' => '0',
+    'Log::Dispatch::Dir' => '0.08',
     'Log::Dispatch::FileRotate' => '0',
     'Log::Dispatch::Syslog' => '0',
     'Log::Log4perl' => '0',

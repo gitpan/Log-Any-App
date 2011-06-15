@@ -2,7 +2,7 @@ NAME
     Log::Any::App - An easy way to use Log::Any in applications
 
 VERSION
-    version 0.31
+    version 0.32
 
 SYNOPSIS
     Most of the time you only need to do this:
@@ -253,8 +253,9 @@ USING AND EXAMPLES
                    {path=>"/var/log/debug_foo", category=>'Foo', level=>'debug'}];
 
   Changing level of a certain module
-    Suppose you want to shut up Foo, Bar::Baz, and Qux's logging because
-    they are too noisy:
+    Suppose you want to shut up logs from modules Foo, Bar::Baz, and Qux
+    (and their submodules as well, e.g. Foo::Alpha, Bar::Baz::Beta::Gamma)
+    because they are too noisy:
 
      use Log::Any::App '$log',
          -category_level => { Foo => 'off', 'Bar::Baz' => 'off', Qux => 'off' };
@@ -341,7 +342,7 @@ FUNCTIONS
         you can do this instead:
 
          init(
-             -category_alias => {_fbb => [qw/Foo Bar Baz/]},
+             -category_alias => {-fbb => [qw/Foo Bar Baz/]},
              -file   => [category=>'-fbb', ...],
              -screen => [category=>'-fbb', ...],
          );
@@ -628,8 +629,8 @@ SEE ALSO
     Log::Any and Log::Log4perl
 
     Some alternative logging modules: Log::Dispatchouli (based on
-    Log::Dispatch), Log::Fast, Log::Log4perl::Tiny. Really, there are around
-    7,451 of them (roughly one third of CPAN, at the time of this writing).
+    Log::Dispatch), Log::Fast, Log::Log4perl::Tiny. Really, there are 7,451
+    of them (roughly one third of CPAN) at the time of this writing.
 
 AUTHOR
     Steven Haryanto <stevenharyanto@gmail.com>
