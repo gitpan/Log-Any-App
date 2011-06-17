@@ -1,6 +1,6 @@
 package Log::Any::App;
 BEGIN {
-  $Log::Any::App::VERSION = '0.32';
+  $Log::Any::App::VERSION = '0.33';
 }
 # ABSTRACT: An easy way to use Log::Any in applications
 
@@ -85,7 +85,7 @@ sub _gen_appender_config {
         "",
         "log4perl.appender.$apd_name = $class\n",
         (map { "log4perl.appender.$apd_name.$_ = $params->{$_}\n" }
-             keys %$params),
+             grep {defined $params->{$_}} keys %$params),
         "log4perl.appender.$apd_name.layout = PatternLayout\n",
         "log4perl.appender.$apd_name.layout.ConversionPattern = $ospec->{pattern}\n",
         ($filter ? "log4perl.appender.$apd_name.Filter = $filter\n" : ""),
@@ -809,7 +809,7 @@ Log::Any::App - An easy way to use Log::Any in applications
 
 =head1 VERSION
 
-version 0.32
+version 0.33
 
 =head1 SYNOPSIS
 
