@@ -2,7 +2,7 @@ NAME
     Log::Any::App - An easy way to use Log::Any in applications
 
 VERSION
-    version 0.33
+    version 0.34
 
 SYNOPSIS
     Most of the time you only need to do this:
@@ -99,17 +99,37 @@ USING AND EXAMPLES
     produce logs in your application (only in the modules).
 
   Changing logging level
-    Changing logging level can be done from the script or outside the
-    script. From the script:
+    Since one of the most commonly tweaked logging setting is level (for
+    example: increasing level when debugging problems), Log::Any::App
+    provides several mechanisms to change log level, either from the script
+    or from outside the script, for your convenience. Below are the
+    mechanisms, ordered from highest priority:
+
+    *   import argument (inside the script)
+
+    *   command line arguments (outside the script)
+
+    *   environment variables (outside the script)
+
+    *   level flag files (outside the script)
+
+    *   variables in 'main' package (inside the script)
+
+    These mechanisms are explained in more details in the documentation for
+    the init() function. But below are some examples.
+
+    To change level from inside the script:
 
      use Log::Any::App '$log', -level => 'debug';
 
-    but oftentimes what you want is changing level without modifying the
-    script itself.
+    This is useful if you want a fixed level that cannot be overriden by
+    other mechanisms (since setting level using import argument has the
+    highest priority). But oftentimes what you want is changing level
+    without modifying the script itself. Thereby, just write:
 
      use Log::Any::App '$log';
 
-    and then you can use environment variable:
+    and then you can use environment variables to change level:
 
      TRACE=1 script.pl;         # setting level to trace
      DEBUG=1 script.pl;         # setting level to debug
@@ -125,20 +145,22 @@ USING AND EXAMPLES
      script.pl --quiet
      script.pl --log_level=debug;   # '--log-level debug' will also do
 
-    Log::Any::App won't consume the command-line options from @ARGV and thus
-    won't interfere with command-line processing modules like Getopt::Long
-    or App::Options. You might want to define these options in your option
-    processing module though, or it might complain about unknown options. Or
-    alternatively you can use environment variables instead.
+    Regarding command-line options: Log::Any::App won't consume the
+    command-line options from @ARGV and thus won't interfere with
+    command-line processing modules like Getopt::Long or App::Options. If
+    you use a command-line processing module and plan to use command-line
+    options to set level, you might want to define these level options, or
+    your command-line processing module will complain about unknown options.
 
   Changing default level
-    The default log level is 'warn'. You can change this using:
+    The default log level is 'warn'. To change the default level, you can
+    use 'main' package variables (since they have the lowest priority):
 
      use Log::Any::App '$log';
-     BEGIN { our $Log_Level = 'info' }
+     BEGIN { our $Log_Level = 'info' } # be more verbose by default
 
-    and then you can still use environment or command-line options to
-    override the setting.
+    Then you will still be able to use level flag files or environment
+    variables or command-line options to override this setting.
 
   Changing per-output level
     Logging level can also be specified on a per-output level. For example,
@@ -154,10 +176,9 @@ USING AND EXAMPLES
      script.pl --screen-debug
      script.pl --screen-trace=1
      script.pl --screen-log-level=info
-     # and so on
 
     Similarly, to set only file level, use FILE_VERBOSE, FILE_LOG_LEVEL,
-    --file-trace, etc.
+    --file-trace, and so on.
 
   Setting default per-output level
     As with setting default level, you can also set default level on a
@@ -182,20 +203,39 @@ USING AND EXAMPLES
 
      use Log::Any::App '$log', -screen => {level=>'off'};
 
-    and this won't allow it to be reenabled from outside the script. However
-    if you do this:
+    and this won't allow the output to be reenabled from outside the script.
+    However if you do this:
 
      use Log::Any::App;
      BEGIN { our $Screen_Log_Level = 'off' }
 
     then by default screen logging is turned off but you will be able to
-    override the screen log level using environment or command-line options
-    (SCREEN_DEBUG, --screen-verbose, and so on).
+    override the screen log level using level flag files or environment
+    variables or command-line options (SCREEN_DEBUG, --screen-verbose, and
+    so on).
+
+  Changing log level of cron scripts
+    Environment variables and command-line options allow changing log level
+    without modifying the script. But for scripts specified in crontab, they
+    still require changing crontab entries, e.g.:
+
+     # turn on debugging
+     */5 * * * * DEBUG=1 foo
+
+     # be silent
+     */5 * * * * bar --quiet
+
+    Another mechanism, level flag file, is useful in this case. By doing:
+
+     $ echo debug > ~/foo.log_level
+     # touch /etc/bar.QUIET
+
+    you can also change log levels without modifying your crontab.
 
   Changing log file name/location
-    By default Log::Any::App will use ~/$NAME.log (or /var/log/$NAME.log if
-    script is running as root), where $NAME is taken from the basename of
-    $0. But this can be changed using:
+    By default Log::Any::App will log to file to ~/$NAME.log (or
+    /var/log/$NAME.log if script is running as root), where $NAME is taken
+    from the basename of $0. But this can be changed using:
 
      use Log::Any::App '$log', -name => 'myprog';
 
@@ -285,8 +325,15 @@ USING AND EXAMPLES
 
   Preventing logging level to be changed from outside the script
     Sometimes, for security/audit reasons, you don't want to allow script
-    caller to change logging level. To do so, just specify the 'level'
-    option in the script during 'use' statement.
+    caller to change logging level. As explained previously, you can use the
+    'level' import argument (the highest priority of level-setting):
+
+     use Log::Any::App '$log', -level => 'debug'; # always use debug level
+
+    TODO: Allow something like 'debug+' to allow other mechanisms to
+    *increase* the level but not decrease it. Or 'debug-' to allow other
+    mechanisms to decrease level but not increase it. And finally
+    'debug,trace' to specify allowable levels (is this necessary?)
 
   Debugging
     To see the Log4perl configuration that is generated by Log::Any::App and
@@ -324,6 +371,9 @@ FUNCTIONS
     -name => STRING
         Change the program name. Default is taken from $0.
 
+    -level_flag_paths => ARRAY OF STRING
+        Edit level flag file locations. The default is [$homedir, "/etc"].
+
     -daemon => BOOL
         Declare that script is a daemon. Default is no. Aside from this, to
         declare that your script is a daemon you can also set
@@ -356,23 +406,30 @@ FUNCTIONS
         Specify log level for all outputs. Each output can override this
         value. The default log level is determined as follow:
 
-        If App::Options is present, these keys are checked in %App::options:
-        log_level, trace (if true then level is "trace"), debug (if true
-        then level is "debug"), verbose (if true then level is "info"),
-        quiet (if true then level is "error").
+        Search in command-line options. If App::Options is present, these
+        keys are checked in %App::options: log_level, trace (if true then
+        level is "trace"), debug (if true then level is "debug"), verbose
+        (if true then level is "info"), quiet (if true then level is
+        "error").
 
         Otherwise, it will try to scrape @ARGV for the presence of
         --log-level, --trace, --debug, --verbose, or --quiet (this usually
         works because Log::Any::App does this in the INIT phase, before you
         call Getopt::Long's GetOptions() or the like).
 
-        Otherwise, it will look for environment variables: LOG_LEVEL, QUIET.
-        VERBOSE, DEBUG, TRACE.
+        Search in environment variables. Otherwise, it will look for
+        environment variables: LOG_LEVEL, QUIET. VERBOSE, DEBUG, TRACE.
 
-        Otherwise, it will try to search for package variables in the "main"
-        namespace with names like $Log_Level or $LOG_LEVEL or $log_level,
-        $Quiet or $QUIET or $quiet, $Verbose or $VERBOSE or $verbose, $Trace
-        or $TRACE or $trace, $Debug or $DEBUG or $debug.
+        Search in level flag files. Otherwise, it will look for existence of
+        files with one of these names "$NAME.QUIET", "$NAME.VERBOSE",
+        "$NAME.TRACE", "$NAME.DEBUG", or content of "$NAME.log_level" in ~
+        or /etc.
+
+        Search in main package variables. Otherwise, it will try to search
+        for package variables in the "main" namespace with names like
+        $Log_Level or $LOG_LEVEL or $log_level, $Quiet or $QUIET or $quiet,
+        $Verbose or $VERBOSE or $verbose, $Trace or $TRACE or $trace, $Debug
+        or $DEBUG or $debug.
 
         If everything fails, it defaults to 'warn'.
 
@@ -415,9 +472,10 @@ FUNCTIONS
         Default rotating behaviour is no rotate (max_size = 0).
 
         Default level for file is the same as the global level set by
-        -level. But App::options, command line, environment, and package
-        variables in main are also searched first (for FILE_LOG_LEVEL,
-        FILE_TRACE, FILE_DEBUG, FILE_VERBOSE, FILE_QUIET, and the similars).
+        -level. But App::options, command line, environment, level flag
+        file, and package variables in main are also searched first (for
+        FILE_LOG_LEVEL, FILE_TRACE, FILE_DEBUG, FILE_VERBOSE, FILE_QUIET,
+        and the similars).
 
     -dir => 0 | 1|yes|true | PATH | {opts} | [{opts}, ...]
         Log messages using Log::Dispatch::Dir. Each message is logged into
@@ -454,9 +512,10 @@ FUNCTIONS
         max_age=undef.
 
         Default level for dir logging is the same as the global level set by
-        -level. But App::options, command line, environment, and package
-        variables in main are also searched first (for DIR_LOG_LEVEL,
-        DIR_TRACE, DIR_DEBUG, DIR_VERBOSE, DIR_QUIET, and the similars).
+        -level. But App::options, command line, environment, level flag
+        file, and package variables in main are also searched first (for
+        DIR_LOG_LEVEL, DIR_TRACE, DIR_DEBUG, DIR_VERBOSE, DIR_QUIET, and the
+        similars).
 
     -screen => 0 | 1|yes|true | {opts}
         Log messages using Log::Log4perl::Appender::ScreenColoredLevels.
@@ -476,10 +535,10 @@ FUNCTIONS
         Screen logging is turned on by default.
 
         Default level for screen logging is the same as the global level set
-        by -level. But App::options, command line, environment, and package
-        variables in main are also searched first (for SCREEN_LOG_LEVEL,
-        SCREEN_TRACE, SCREEN_DEBUG, SCREEN_VERBOSE, SCREEN_QUIET, and the
-        similars).
+        by -level. But App::options, command line, environment, level flag
+        file, and package variables in main are also searched first (for
+        SCREEN_LOG_LEVEL, SCREEN_TRACE, SCREEN_DEBUG, SCREEN_VERBOSE,
+        SCREEN_QUIET, and the similars).
 
         Color can also be turned on/off using environment variable COLOR (if
         color argument is not set).
@@ -507,10 +566,10 @@ FUNCTIONS
         Ident is program's name by default ($0, or "-name").
 
         Default level for syslog logging is the same as the global level set
-        by -level. But App::options, command line, environment, and package
-        variables in main are also searched first (for SYSLOG_LOG_LEVEL,
-        SYSLOG_TRACE, SYSLOG_DEBUG, SYSLOG_VERBOSE, SYSLOG_QUIET, and the
-        similars).
+        by -level. But App::options, command line, environment, level flag
+        file, and package variables in main are also searched first (for
+        SYSLOG_LOG_LEVEL, SYSLOG_TRACE, SYSLOG_DEBUG, SYSLOG_VERBOSE,
+        SYSLOG_QUIET, and the similars).
 
     -dump => BOOL
         If set to true then Log::Any::App will dump the generated Log4perl

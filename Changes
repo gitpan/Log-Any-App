@@ -1,5 +1,13 @@
 Revision history for Log-Any-App
 
+0.34     2011-07-14
+
+         [ENHANCEMENTS]
+
+         - Add another mechanism to set logging level from outside the script:
+           using level flag files.
+
+
 0.33     2011-06-17
 
          Fix Perl undef warning.

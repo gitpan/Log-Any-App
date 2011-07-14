@@ -9,7 +9,9 @@ use strict;
 use warnings;
 
 use Log::Any::App -dir => 0, -file => 0, -screen => 0, -syslog => 0, -init => 0;
-use Test::More tests => 68;
+use File::Slurp;
+use File::Temp qw(tempdir);
+use Test::More;
 
 test_init(
     name => 'default',
@@ -126,7 +128,28 @@ while (my ($k, $v) = each %vars) {
     ); #2
 } #=4x2
 
-
+my @lfftests = (
+    {ext => "DEBUG", level => "debug"},
+    {ext => "FILE_VERBOSE", level => "warn", file_level => "info"},
+    {ext => "log_level", content => "error", level => "error"},
+    {ext => "SCREEN_log_level", content => "trace", level => "warn",
+     screen_level => "trace"},
+);
+my $tempdir = tempdir(CLEANUP => 1);
+chdir $tempdir or die "Can't chdir to $tempdir: $!";
+for my $test (@lfftests) {
+    my $flag_file = "$tempdir/prog.$test->{ext}";
+    write_file($flag_file, $test->{content} // "");
+    my %args = (
+        name  => "setting output level via level flag file: $flag_file",
+        init_args => [-name => 'prog', -level_flag_paths => [$tempdir]],
+    );
+    $args{level} = $test->{level} if $test->{level};
+    $args{$_} = $test->{$_} for grep {/_level$/} keys %$test;
+    test_init(%args);
+    unlink $flag_file or die "Can't unlink flag file $flag_file: $!";
+}
+#chdir "/" if Test::More->builder->is_passing;
 
 # TESTING FILE
 
@@ -153,6 +176,8 @@ while (my ($k, $v) = each %vars) {
         file_params => {path => "/foo/bar/app.log"},
     ); #1
 } #=2x1
+
+# D3
 
 # TESTING SCREEN
 {
@@ -204,3 +229,4 @@ test_init(
 # XXX setting general level via app::options
 # XXX setting output level via app::options
 
+done_testing();
