@@ -2,7 +2,7 @@ NAME
     Log::Any::App - An easy way to use Log::Any in applications
 
 VERSION
-    version 0.34
+    version 0.35
 
 SYNOPSIS
     Most of the time you only need to do this:

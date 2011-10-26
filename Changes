@@ -1,5 +1,11 @@
 Revision history for Log-Any-App
 
+0.35     2011-10-26
+
+         No functional changes, but now runs on Perl 5.8.x (previously requires
+         5.10).
+
+
 0.34     2011-07-14
 
          [ENHANCEMENTS]

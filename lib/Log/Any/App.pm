@@ -1,9 +1,6 @@
 package Log::Any::App;
-BEGIN {
-  $Log::Any::App::VERSION = '0.34';
-}
 
-use 5.010;
+use 5.008;
 use strict;
 use warnings;
 
@@ -18,7 +15,7 @@ use Log::Log4perl;
 # use Log::Dispatch::FileRotate
 # use Log::Dispatch::Syslog
 
-our $VERSION = '0.34'; # VERSION
+our $VERSION = '0.35'; # VERSION
 
 use vars qw($dbg_ctx);
 
@@ -33,6 +30,12 @@ my %PATTERN_STYLES = (
 my $init_args;
 our $init_called;
 my $is_daemon;
+
+# poor man's version of 5.10's //
+sub _ifdef {
+    my ($a, $b) = @_;
+    defined($a) ? $a : $b;
+}
 
 sub init {
     return if $init_called++;
@@ -181,7 +184,7 @@ sub _gen_l4p_config {
             for my $oname (keys %levels) {
                 my $olevel = $find_olevel->($oname, $cat);
                 next unless $olevel;
-                $cat_level //= $olevel;
+                $cat_level = _ifdef($cat_level, $olevel);
                 $cat_level = _min_level($cat_level, $olevel);
             }
             $cat_configs{$cat} = [uc($cat_level)];
@@ -277,7 +280,7 @@ sub _dirname {
 
 sub _parse_args {
     my ($args, $caller) = @_;
-    $args //= []; # if we don't import(), we never get args
+    $args = _ifdef($args, []); # if we don't import(), we never get args
 
     my $i = 0;
     while ($i < @$args) {
@@ -294,7 +297,7 @@ sub _parse_args {
 
 sub _parse_opts {
     my ($args, $caller) = @_;
-    $args //= []; # if we don't import(), we never get args
+    $args = _ifdef($args, []); # if we don't import(), we never get args
     _debug("parse_opts: args = [".join(", ", @$args)."]");
 
     my $spec = {
@@ -373,19 +376,19 @@ sub _parse_opts {
     }
 
     $spec->{file} = [];
-    _parse_opt_file($spec, $opts{file} // ($0 ne '-e' ? 1:0));
+    _parse_opt_file($spec, _ifdef($opts{file}, ($0 ne '-e' ? 1:0)));
     delete $opts{file};
 
     $spec->{dir} = [];
-    _parse_opt_dir($spec, $opts{dir} // 0);
+    _parse_opt_dir($spec, _ifdef($opts{dir}, 0));
     delete $opts{dir};
 
     $spec->{screen} = [];
-    _parse_opt_screen($spec, $opts{screen} // (!_is_daemon()));
+    _parse_opt_screen($spec, _ifdef($opts{screen}, !_is_daemon()));
     delete $opts{screen};
 
     $spec->{syslog} = [];
-    _parse_opt_syslog($spec, $opts{syslog} // (_is_daemon()));
+    _parse_opt_syslog($spec, _ifdef($opts{syslog}, _is_daemon()));
     delete $opts{syslog};
 
     if (keys %opts) {
@@ -399,10 +402,10 @@ sub _parse_opts {
 }
 
 sub _is_daemon {
-    $is_daemon //
-    $main::IS_DAEMON //
+    if (defined $is_daemon) { return $is_daemon }
+    if (defined $main::IS_DAEMON) { return $main::IS_DAEMON }
 
-    (
+    my $res =
         $INC{"App/Daemon.pm"} ||
         $INC{"Daemon/Easy.pm"} ||
         $INC{"Daemon/Daemonize.pm"} ||
@@ -418,8 +421,8 @@ sub _is_daemon {
         $INC{"Proc/Daemon.pm"} ||
         $INC{"Proc/PID/File.pm"} ||
         $INC{"Win32/Daemon/Simple.pm"}
-    ) //
-
+            ;
+    if (defined $res) { return $res }
     0;
 }
 
@@ -556,7 +559,7 @@ sub _default_screen {
         _debug("Set level of screen to $level (general level)");
     }
     return {
-        color => $ENV{COLOR} // (-t STDOUT),
+        color => _ifdef($ENV{COLOR}, (-t STDOUT)),
         stderr => 1,
         level => $level,
         category_level => $spec->{category_level},
@@ -617,7 +620,7 @@ sub _set_pattern {
 
 sub _extract_category {
     my ($ospec, $c) = @_;
-    my $c0 = $c // $ospec->{category};
+    my $c0 = _ifdef($c, $ospec->{category});
     my @res;
     if (ref($c0) eq 'ARRAY') { @res = @$c0 } else { @res = ($c0) }
     # replace alias with real value
@@ -672,7 +675,7 @@ sub _set_level {
             my $key;
             for (qw/log_level loglevel/) {
                 $key = $p_ . $_;
-                _debug("Checking \$App::options{$key}: ", ($App::options{$key} // "(undef)"));
+                _debug("Checking \$App::options{$key}: ", _ifdef($App::options{$key}, "(undef)"));
                 if ($App::options{$key}) {
                     $level = _check_level($App::options{$key}, "\$App::options{$key}");
                     $from = "\$App::options{$key}";
@@ -681,7 +684,7 @@ sub _set_level {
             }
             for (@label2level) {
                 $key = $p_ . $_->[0];
-                _debug("Checking \$App::options{$key}: ", ($App::options{$key} // "(undef)"));
+                _debug("Checking \$App::options{$key}: ", _ifdef($App::options{$key}, "(undef)"));
                 if ($App::options{$key}) {
                     $level = $_->[1];
                     $from = "\$App::options{$key}";
@@ -717,7 +720,7 @@ sub _set_level {
 
         for (qw/LOG_LEVEL LOGLEVEL/) {
             my $key = $P_ . $_;
-            _debug("Checking environment variable $key: ", ($ENV{$key} // "(undef)"));
+            _debug("Checking environment variable $key: ", _ifdef($ENV{$key}, "(undef)"));
             if ($ENV{$key}) {
                 $level = _check_level($ENV{$key}, "ENV $key");
                 $from = "\$ENV{$key}";
@@ -726,7 +729,7 @@ sub _set_level {
         }
         for (@label2level) {
             my $key = $P_ . uc($_->[0]);
-            _debug("Checking environment variable $key: ", ($ENV{$key} // "(undef)"));
+            _debug("Checking environment variable $key: ", _ifdef($ENV{$key}, "(undef)"));
             if ($ENV{$key}) {
                 $level = $_->[1];
                 $from = "\$ENV{$key}";
@@ -770,7 +773,7 @@ sub _set_level {
         for ("${F_}Log_Level", "${P_}LOG_LEVEL", "${p_}log_level",
              "${F_}LogLevel",  "${P_}LOGLEVEL",  "${p_}loglevel") {
             my $varname = "main::$_";
-            _debug("Checking variable \$$varname: ", ($$varname // "(undef)"));
+            _debug("Checking variable \$$varname: ", _ifdef($$varname, "(undef)"));
             if ($$varname) {
                 $from = "\$$varname";
                 $level = _check_level($$varname, "\$$varname");
@@ -781,7 +784,7 @@ sub _set_level {
             for my $varname (
                 "main::$F_" . ucfirst($_->[0]),
                 "main::$P_" . uc($_->[0])) {
-                _debug("Checking variable \$$varname: ", ($$varname // "(undef)"));
+                _debug("Checking variable \$$varname: ", _ifdef($$varname, "(undef)"));
                 if ($$varname) {
                     $from = "\$$varname";
                     $level = $_->[1];
@@ -848,7 +851,7 @@ Log::Any::App - An easy way to use Log::Any in applications
 
 =head1 VERSION
 
-version 0.34
+version 0.35
 
 =head1 SYNOPSIS
 

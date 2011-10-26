@@ -21,7 +21,7 @@ my %module_build_args = (
     'Steven Haryanto <stevenharyanto@gmail.com>'
   ],
   'dist_name' => 'Log-Any-App',
-  'dist_version' => '0.34',
+  'dist_version' => '0.35',
   'license' => 'perl',
   'module_name' => 'Log::Any::App',
   'recommends' => {},
@@ -39,7 +39,7 @@ my %module_build_args = (
     'Log::Dispatch::FileRotate' => '0',
     'Log::Dispatch::Syslog' => '0',
     'Log::Log4perl' => '0',
-    'perl' => '5.010000',
+    'perl' => '5.008000',
     'vars' => '0'
   },
   'script_files' => []

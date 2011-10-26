@@ -139,7 +139,7 @@ my $tempdir = tempdir(CLEANUP => 1);
 chdir $tempdir or die "Can't chdir to $tempdir: $!";
 for my $test (@lfftests) {
     my $flag_file = "$tempdir/prog.$test->{ext}";
-    write_file($flag_file, $test->{content} // "");
+    write_file($flag_file, defined($test->{content}) ? $test->{content} : "");
     my %args = (
         name  => "setting output level via level flag file: $flag_file",
         init_args => [-name => 'prog', -level_flag_paths => [$tempdir]],
