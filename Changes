@@ -1,5 +1,18 @@
 Revision history for Log-Any-App
 
+0.36     2012-02-25
+
+         [ENHANCEMENTS]
+
+         This release makes it possible to show and filter log messages by
+         categories from the command-line, using environment variables.
+
+         - Add LOG_SHOW_CATEGORY
+
+         - Add LOG_CATEGORY_ALIAS, LOG_CATEGORY_LEVEL, and
+           ${OUTPUT}_LOG_CATEGORY_LEVEL
+
+
 0.35     2011-10-26
 
          No functional changes, but now runs on Perl 5.8.x (previously requires

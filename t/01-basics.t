@@ -229,4 +229,7 @@ test_init(
 # XXX setting general level via app::options
 # XXX setting output level via app::options
 
+# XXX test LOG_SHOW_CATEGORY
+# XXX test LOG_CATEGORY_ALIAS & LOG_CATEGORY_LEVEL & ${OUT}_LOG_CATEGORY_LEVEL
+
 done_testing();

@@ -1,5 +1,7 @@
 package Log::Any::App;
 
+# i need this to run on centos 5.x. otherwise all my other servers are debian
+# 5.x and 6.x+ (perl 5.010).
 use 5.008;
 use strict;
 use warnings;
@@ -15,7 +17,7 @@ use Log::Log4perl;
 # use Log::Dispatch::FileRotate
 # use Log::Dispatch::Syslog
 
-our $VERSION = '0.35'; # VERSION
+our $VERSION = '0.36'; # VERSION
 
 use vars qw($dbg_ctx);
 
@@ -26,6 +28,9 @@ my %PATTERN_STYLES = (
     daemon            => '[pid %P] [%d] %m%n',
     syslog            => '[pid %p] %m',
 );
+for (keys %PATTERN_STYLES) {
+    $PATTERN_STYLES{"cat_$_"} = "[cat %c]$PATTERN_STYLES{$_}";
+}
 
 my $init_args;
 our $init_called;
@@ -35,6 +40,17 @@ my $is_daemon;
 sub _ifdef {
     my ($a, $b) = @_;
     defined($a) ? $a : $b;
+}
+
+# m=multi, j=as json (except the last default)
+sub _ifdefmj {
+    require JSON;
+
+    my $def = pop @_;
+    for (@_) {
+        return JSON::decode_json($_) if defined($_);
+    }
+    $def;
 }
 
 sub init {
@@ -305,7 +321,7 @@ sub _parse_opts {
         init => 1,
         dump => ($ENV{LOGANYAPP_DEBUG} ? 1:0),
         daemon => 0,
-        category_alias => {},
+        category_alias => _ifdefmj($ENV{LOG_CATEGORY_ALIAS}, {}),
         level_flag_paths => [File::HomeDir->my_home, "/etc"],
     };
 
@@ -478,7 +494,9 @@ sub _default_file {
     }
     return {
         level => $level,
-        category_level => $spec->{category_level},
+        category_level => _ifdefmj($ENV{FILE_LOG_CATEGORY_LEVEL},
+                                   $ENV{LOG_CATEGORY_LEVEL},
+                                   $spec->{category_level}),
         path => $> ? File::Spec->catfile(File::HomeDir->my_home, "$spec->{name}.log") :
             "/var/log/$spec->{name}.log", # XXX and on Windows?
         max_size => undef,
@@ -486,7 +504,7 @@ sub _default_file {
         date_pattern => undef,
         tz => undef,
         category => '',
-        pattern_style => 'daemon',
+        pattern_style => ($ENV{LOG_SHOW_CATEGORY} ? 'cat_':'') . 'daemon',
         pattern => undef,
     };
 }
@@ -525,14 +543,16 @@ sub _default_dir {
     }
     return {
         level => $level,
-        category_level => $spec->{category_level},
+        category_level => _ifdefmj($ENV{DIR_LOG_CATEGORY_LEVEL},
+                                   $ENV{LOG_CATEGORY_LEVEL},
+                                   $spec->{category_level}),
         path => $> ? File::Spec->catfile(File::HomeDir->my_home, "log", $spec->{name}) :
             "/var/log/$spec->{name}", # XXX and on Windows?
         max_size => undef,
         max_age => undef,
         histories => undef,
         category => '',
-        pattern_style => 'plain',
+        pattern_style => ($ENV{LOG_SHOW_CATEGORY} ? 'cat_':'') . 'plain',
         pattern => undef,
         filename_pattern => undef,
     };
@@ -562,9 +582,11 @@ sub _default_screen {
         color => _ifdef($ENV{COLOR}, (-t STDOUT)),
         stderr => 1,
         level => $level,
-        category_level => $spec->{category_level},
+        category_level => _ifdefmj($ENV{SCREEN_LOG_CATEGORY_LEVEL},
+                                   $ENV{LOG_CATEGORY_LEVEL},
+                                   $spec->{category_level}),
         category => '',
-        pattern_style => 'script_short',
+        pattern_style => ($ENV{LOG_SHOW_CATEGORY} ? 'cat_':'') . 'script_short',
         pattern => undef,
     };
 }
@@ -586,10 +608,12 @@ sub _default_syslog {
     }
     return {
         level => $level,
-        category_level => $spec->{category_level},
+        category_level => _ifdefmj($ENV{SYSLOG_LOG_CATEGORY_LEVEL},
+                                   $ENV{LOG_CATEGORY_LEVEL},
+                                   $spec->{category_level}),
         ident => $spec->{name},
         facility => 'daemon',
-        pattern_style => 'syslog',
+        pattern_style => ($ENV{LOG_SHOW_CATEGORY} ? 'cat_':'') . 'syslog',
         pattern => undef,
         category => '',
     };
@@ -851,7 +875,7 @@ Log::Any::App - An easy way to use Log::Any in applications
 
 =head1 VERSION
 
-version 0.35
+version 0.36
 
 =head1 SYNOPSIS
 
@@ -1268,11 +1292,21 @@ you can do this instead:
      -screen => [category=>'-fbb', ...],
  );
 
+You can also specify this from the environment variable LOG_CATEGORY_ALIAS using
+JSON encoding, e.g.
+
+ LOG_CATEGORY_ALIAS='{"-fbb":["Foo","Bar","Baz"]}'
+
 =item -category_level => {CATEGORY=>LEVEL, ...}
 
 Specify per-category level. Categories not mentioned on this will use the
 general level (-level). This can be used to increase or decrease logging on
 certain categories/modules.
+
+You can also specify this from the environment variable LOG_CATEGORY_LEVEL using
+JSON encoding, e.g.
+
+ LOG_CATEGORY_LEVEL='{"-fbb":"off"}'
 
 =item -level => 'trace'|'debug'|'info'|'warn'|'error'|'fatal'|'off'
 
@@ -1342,6 +1376,8 @@ App::options, command line, environment, level flag file, and package variables
 in main are also searched first (for B<FILE_LOG_LEVEL>, B<FILE_TRACE>,
 B<FILE_DEBUG>, B<FILE_VERBOSE>, B<FILE_QUIET>, and the similars).
 
+You can also specify category level from environment FILE_LOG_CATEGORY_LEVEL.
+
 =item -dir => 0 | 1|yes|true | PATH | {opts} | [{opts}, ...]
 
 Log messages using L<Log::Dispatch::Dir>. Each message is logged into separate
@@ -1379,6 +1415,8 @@ But App::options, command line, environment, level flag file, and package
 variables in main are also searched first (for B<DIR_LOG_LEVEL>, B<DIR_TRACE>,
 B<DIR_DEBUG>, B<DIR_VERBOSE>, B<DIR_QUIET>, and the similars).
 
+You can also specify category level from environment DIR_LOG_CATEGORY_LEVEL.
+
 =item -screen => 0 | 1|yes|true | {opts}
 
 Log messages using L<Log::Log4perl::Appender::ScreenColoredLevels>.
@@ -1405,6 +1443,8 @@ similars).
 Color can also be turned on/off using environment variable COLOR (if B<color>
 argument is not set).
 
+You can also specify category level from environment SCREEN_LOG_CATEGORY_LEVEL.
+
 =item -syslog => 0 | 1|yes|true | {opts}
 
 Log messages using L<Log::Dispatch::Syslog>.
@@ -1430,6 +1470,8 @@ B<-level>. But App::options, command line, environment, level flag file, and
 package variables in main are also searched first (for B<SYSLOG_LOG_LEVEL>,
 B<SYSLOG_TRACE>, B<SYSLOG_DEBUG>, B<SYSLOG_VERBOSE>, B<SYSLOG_QUIET>, and the
 similars).
+
+You can also specify category level from environment SYSLOG_LOG_CATEGORY_LEVEL.
 
 =item -dump => BOOL
 
@@ -1480,6 +1522,12 @@ C<pattern_style> instead of directly specifying C<pattern>. example:
 
                 Equivalent to pattern:
                 '[pid %p] %m'
+
+For each of the above there are also C<cat_XXX> (e.g. C<cat_script_long>) which
+are the same as XXX but with C<[cat %c]> in front of the pattern. It is used
+mainly to show categories and then filter by categories. You can turn picking
+default pattern style with category using environment variable
+LOG_SHOW_CATEGORY.
 
 If you have a favorite pattern style, please do share them.
 
@@ -1568,7 +1616,7 @@ Steven Haryanto <stevenharyanto@gmail.com>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2011 by Steven Haryanto.
+This software is copyright (c) 2012 by Steven Haryanto.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.
