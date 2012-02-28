@@ -17,7 +17,7 @@ use Log::Log4perl;
 # use Log::Dispatch::FileRotate
 # use Log::Dispatch::Syslog
 
-our $VERSION = '0.36'; # VERSION
+our $VERSION = '0.37'; # VERSION
 
 use vars qw($dbg_ctx);
 
@@ -30,6 +30,7 @@ my %PATTERN_STYLES = (
 );
 for (keys %PATTERN_STYLES) {
     $PATTERN_STYLES{"cat_$_"} = "[cat %c]$PATTERN_STYLES{$_}";
+    $PATTERN_STYLES{"loc_$_"} = "[loc %l]$PATTERN_STYLES{$_}";
 }
 
 my $init_args;
@@ -485,6 +486,12 @@ sub _parse_opt_OUTPUT {
     }
 }
 
+sub _set_pattern_style {
+    my ($x) = @_;
+    ($ENV{LOG_SHOW_LOCATION} ? 'loc_':
+         $ENV{LOG_SHOW_CATEGORY} ? 'cat_':'') . $x;
+}
+
 sub _default_file {
     my ($spec) = @_;
     my $level = _set_level("file", "file", $spec);
@@ -504,7 +511,7 @@ sub _default_file {
         date_pattern => undef,
         tz => undef,
         category => '',
-        pattern_style => ($ENV{LOG_SHOW_CATEGORY} ? 'cat_':'') . 'daemon',
+        pattern_style => _set_pattern_style('daemon'),
         pattern => undef,
     };
 }
@@ -552,7 +559,7 @@ sub _default_dir {
         max_age => undef,
         histories => undef,
         category => '',
-        pattern_style => ($ENV{LOG_SHOW_CATEGORY} ? 'cat_':'') . 'plain',
+        pattern_style => _set_pattern_style('plain'),
         pattern => undef,
         filename_pattern => undef,
     };
@@ -586,7 +593,7 @@ sub _default_screen {
                                    $ENV{LOG_CATEGORY_LEVEL},
                                    $spec->{category_level}),
         category => '',
-        pattern_style => ($ENV{LOG_SHOW_CATEGORY} ? 'cat_':'') . 'script_short',
+        pattern_style => _set_pattern_style('script_short'),
         pattern => undef,
     };
 }
@@ -613,7 +620,7 @@ sub _default_syslog {
                                    $spec->{category_level}),
         ident => $spec->{name},
         facility => 'daemon',
-        pattern_style => ($ENV{LOG_SHOW_CATEGORY} ? 'cat_':'') . 'syslog',
+        pattern_style => _set_pattern_style('syslog'),
         pattern => undef,
         category => '',
     };
@@ -875,7 +882,7 @@ Log::Any::App - An easy way to use Log::Any in applications
 
 =head1 VERSION
 
-version 0.36
+version 0.37
 
 =head1 SYNOPSIS
 
@@ -1528,6 +1535,12 @@ are the same as XXX but with C<[cat %c]> in front of the pattern. It is used
 mainly to show categories and then filter by categories. You can turn picking
 default pattern style with category using environment variable
 LOG_SHOW_CATEGORY.
+
+And for each of the above there are also C<loc_XXX> (e.g. C<loc_syslog>) which
+are the same as XXX but with C<[loc %l]> in front of the pattern. It is used to
+show calling location (file, function/method, and line number). You can turn
+picking default pattern style with location prefix using environment variable
+LOG_SHOW_LOCATION.
 
 If you have a favorite pattern style, please do share them.
 

@@ -2,7 +2,7 @@ NAME
     Log::Any::App - An easy way to use Log::Any in applications
 
 VERSION
-    version 0.36
+    version 0.37
 
 SYNOPSIS
     Most of the time you only need to do this:
@@ -645,6 +645,12 @@ PATTERN STYLES
     It is used mainly to show categories and then filter by categories. You
     can turn picking default pattern style with category using environment
     variable LOG_SHOW_CATEGORY.
+
+    And for each of the above there are also "loc_XXX" (e.g. "loc_syslog")
+    which are the same as XXX but with "[loc %l]" in front of the pattern.
+    It is used to show calling location (file, function/method, and line
+    number). You can turn picking default pattern style with location prefix
+    using environment variable LOG_SHOW_LOCATION.
 
     If you have a favorite pattern style, please do share them.
 

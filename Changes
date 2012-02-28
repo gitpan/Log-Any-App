@@ -1,5 +1,13 @@
 Revision history for Log-Any-App
 
+0.37     2012-02-28
+
+         [ENHANCEMENTS]
+
+         Enable showing location (%l, function/file/line number) via environment
+         LOG_SHOW_LOCATION.
+
+
 0.36     2012-02-25
 
          [ENHANCEMENTS]
