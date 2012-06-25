@@ -11,7 +11,7 @@ use File::Spec;
 use Log::Any 0.11;
 use Log::Any::Adapter;
 
-our $VERSION = '0.38'; # VERSION
+our $VERSION = '0.39'; # VERSION
 
 use vars qw($dbg_ctx);
 
@@ -85,6 +85,7 @@ sub _gen_appender_config {
         $class = "Log::Log4perl::Appender::" .
             ($ospec->{color} ? "ScreenColoredLevels" : "Screen");
         $params->{stderr}  = $ospec->{stderr} ? 1:0;
+        $params->{"color.WARN"} = "bold blue"; # blue on black is so unreadable
     } elsif ($name =~ /^syslog/i) {
         $class = "Log::Dispatch::Syslog";
         $params->{mode}     = 'append';
@@ -893,7 +894,7 @@ Log::Any::App - An easy way to use Log::Any in applications
 
 =head1 VERSION
 
-version 0.38
+version 0.39
 
 =head1 SYNOPSIS
 
@@ -936,6 +937,9 @@ For more customization like categories, per-category level, per-output level,
 multiple outputs, string patterns, etc see L</USING AND EXAMPLES> and init().
 
 =head1 DESCRIPTION
+
+IMPORTANT: Please read L</"ROAD TO 1.0"> on some incompatibilities in the near
+future, before 1.0 is released.
 
 Log::Any::App is a convenient combo for L<Log::Any> and L<Log::Log4perl>
 (although alternative backends beside Log4perl might be considered in the
@@ -1660,7 +1664,65 @@ are reasonably simple and should be supported by Log::Any::App).
 
 Need to provide appropriate defaults for Windows/other OS.
 
-Probably: SCREEN0_DEBUG, --file1-log-level, etc.
+=head1 ROAD TO 1.0
+
+Here are some planned changes/development before 1.0 is reached. There might be
+some incompatibilities, please read this section carefully.
+
+=over 4
+
+=item * Everything is configurable via environment/command-line/option file
+
+As I I<love> specifying log options from environment, I will make I<every>
+init() options configurable from outside the script
+(environment/command-line/control file). Of course, init() arguments still take
+precedence for authors that do not want some/all options to be overriden from
+outside.
+
+=item * Reorganization of command-line/environment names
+
+Aside from the handy and short TRACE (--trace), DEBUG, VERBOSE, QUIET, all the
+other environment names will be put under LOG_ prefix. This means FILE_LOG_LEVEL
+will be changed to LOG_FILE_LEVEL, and so on. SCREEN_VERBOSE will be changed to
+VERBOSE_SCREEN.
+
+This is meant to reduce "pollution" of the environment variables namespace.
+
+Log option file (option file for short, previously "flag file") will be searched
+in <PROG>.log_options. Its content is in JSON and will become init() arguments.
+For example:
+
+ {"file": 1, "screen":{"level":"trace"}}
+
+or more akin to init() (both will be supported):
+
+ ["-file": 1, "-screen":{"level":"trace"}]
+
+=item * Possible reorganization of package variable names
+
+To be more strict and reduce confusion, case variation might not be searched.
+
+=item * Pluggable backend
+
+This is actually the main motivator to reach 1.0 and all these changes. Backends
+will be put in Log::Any::App::Backend::Log4perl, and so on.
+
+=item * Pluggable output
+
+Probably split to Log::Any::App::Output::file, and so on. Each output needs
+its backend support.
+
+=item * App::Options support will probably be dropped
+
+I no longer use App::Options these days, and I don't know of any Log::Any::App
+user who does.
+
+=item * Probably some hooks to allow for more flexibility.
+
+For example, if user wants to parse or detect levels/log file paths/etc from
+some custom logic.
+
+=back
 
 =head1 SEE ALSO
 

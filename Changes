@@ -1,5 +1,13 @@
 Revision history for Log-Any-App
 
+0.39     2012-06-26 (SHARYANTO)
+
+         - Change default WARN color for screen output to BOLD blue because I find
+           blue on black so unreadable.
+
+         - Add documentation on future 1.0 release plan.
+
+
 0.38     2012-06-24 (SHARYANTO)
 
          [ENHANCEMENTS]

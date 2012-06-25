@@ -4,7 +4,7 @@
       "Steven Haryanto <stevenharyanto@gmail.com>"
    ],
    "dynamic_config" : 0,
-   "generated_by" : "Dist::Zilla version 4.300015, CPAN::Meta::Converter version 2.120921",
+   "generated_by" : "Dist::Zilla version 4.300006, CPAN::Meta::Converter version 2.113640",
    "license" : [
       "perl_5"
    ],
@@ -27,17 +27,17 @@
       "runtime" : {
          "requires" : {
             "File::Path" : "2.07",
-            "JSON" : "0",
-            "Log::Any::Adapter::Log4perl" : "0",
+            "JSON" : 0,
+            "Log::Any::Adapter::Log4perl" : 0,
             "Log::Dispatch::Dir" : "0.08",
-            "Log::Dispatch::FileRotate" : "0",
-            "Log::Dispatch::Syslog" : "0",
+            "Log::Dispatch::FileRotate" : 0,
+            "Log::Dispatch::Syslog" : 0,
             "perl" : "5.008000"
          }
       },
       "test" : {
          "requires" : {
-            "File::Slurp" : "0"
+            "File::Slurp" : 0
          }
       }
    },
@@ -48,6 +48,6 @@
          "url" : "http://github.com/sharyanto/perl-Log-Any-App"
       }
    },
-   "version" : "0.38"
+   "version" : "0.39"
 }
 
