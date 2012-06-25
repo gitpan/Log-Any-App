@@ -1,6 +1,15 @@
 Revision history for Log-Any-App
 
-0.37     2012-02-28
+0.38     2012-06-24 (SHARYANTO)
+
+         [ENHANCEMENTS]
+
+         Add option -log to allow users to disable Log::Any::App in programs
+         using environment variable (e.g. running 'LOG=1 /path/to/program' in
+         shell).
+
+
+0.37     2012-02-28 (SHARYANTO)
 
          [ENHANCEMENTS]
 
@@ -8,7 +17,7 @@ Revision history for Log-Any-App
          LOG_SHOW_LOCATION.
 
 
-0.36     2012-02-25
+0.36     2012-02-25 (SHARYANTO)
 
          [ENHANCEMENTS]
 
@@ -21,13 +30,13 @@ Revision history for Log-Any-App
            ${OUTPUT}_LOG_CATEGORY_LEVEL
 
 
-0.35     2011-10-26
+0.35     2011-10-26 (SHARYANTO)
 
          No functional changes, but now runs on Perl 5.8.x (previously requires
          5.10).
 
 
-0.34     2011-07-14
+0.34     2011-07-14 (SHARYANTO)
 
          [ENHANCEMENTS]
 
@@ -35,18 +44,18 @@ Revision history for Log-Any-App
            using level flag files.
 
 
-0.33     2011-06-17
+0.33     2011-06-17 (SHARYANTO)
 
          Fix Perl undef warning.
 
 
-0.32     2011-06-15
+0.32     2011-06-15 (SHARYANTO)
 
          Require Log::Dispatch::Dir 0.08. Use default filename_pattern from
          Log::Dispatch::Dir.
 
 
-0.31     2011-04-08
+0.31     2011-04-08 (SHARYANTO)
 
          No functional changes.
 
@@ -55,7 +64,7 @@ Revision history for Log-Any-App
          - Fix typos.
 
 
-0.30     2011-04-08
+0.30     2011-04-08 (SHARYANTO)
 
          [INCOMPATIBLE CHANGES]
 
@@ -71,7 +80,7 @@ Revision history for Log-Any-App
          - Add summary table in Synopsis (suggested by David Golden).
 
 
-0.29     2011-04-07
+0.29     2011-04-07 (SHARYANTO)
 
          No functional changes.
 
@@ -80,7 +89,7 @@ Revision history for Log-Any-App
          - Revise documentation. Better Synopsis and Description, I hope.
 
 
-0.28     2011-03-30
+0.28     2011-03-30 (SHARYANTO)
 
          [ENHANCEMENTS]
 
@@ -88,96 +97,96 @@ Revision history for Log-Any-App
            an0nym0us_m0nk)
 
 
-0.27     2011-02-16
+0.27     2011-02-16 (SHARYANTO)
          - Incomplete fix in 0.26
 
-0.26     2011-02-16
+0.26     2011-02-16 (SHARYANTO)
          - Avoid error when Log::Any::App is require'd without import.
 
-0.25     2011-01-26
+0.25     2011-01-26 (SHARYANTO)
          - Silence Perl's "Too late to run INIT block" warning
          - Add some documentation about require()-ing Log::Any::App in runtime
            phase
 
-0.24     2010-12-17
+0.24     2010-12-17 (SHARYANTO)
          - If file path ends with a /, it is assumed to be a directory and log
            name is appended to it
 
-0.23     2010-11-11
+0.23     2010-11-11 (SHARYANTO)
          - Fix test: untaint path for FileRotate [ct]
 
-0.22     2010-11-10
+0.22     2010-11-10 (SHARYANTO)
          - Fixed dist.ini (require File::Path 2.07 not yet specified)
 
-0.21     2010-11-09
+0.21     2010-11-09 (SHARYANTO)
          - Remove warning messages in test
 
-0.20     2010-11-09
+0.20     2010-11-09 (SHARYANTO)
          - Fixed: Log4perl configuration (yet again!), now mixing
            level/category_level (general and per-output) works
          - Add some tests
 
-0.19     2010-11-08
+0.19     2010-11-08 (SHARYANTO)
          - Fixed typo
 
-0.18     2010-11-08
+0.18     2010-11-08 (SHARYANTO)
          - New: '-category_alias' option
          - New: 'category_level' option
          - New: 'category' in output spec now accepts array
          - Doc: Rewritten usage & examples section
 
-0.17     2010-11-06
+0.17     2010-11-06 (SHARYANTO)
          - Doc updates.
          - Respect environment COLOR=0/1 to disable/enable screen color.
 
-0.16     2010-11-04
+0.16     2010-11-04 (SHARYANTO)
          - More detailed debugging under LOGANYAPP_DEBUG.
          - Doc: some more examples.
 
-0.15     2010-11-04
+0.15     2010-11-04 (SHARYANTO)
          - Fixed: Setting per-target level.
 
-0.14     2010-07-21
+0.14     2010-07-21 (SHARYANTO)
          - Fixed: Unit for FileRotate max_size is not in MB but bytes.
 
-0.13     2010-07-21
+0.13     2010-07-21 (SHARYANTO)
          - Allow turning off each facility via FILE_LOG_LEVEL=off,
            SCREEN_LOG_LEVEL=off, and so on.
 
-0.12     2010-05-07
+0.12     2010-05-07 (SHARYANTO)
          - Switch to DZP::AutoPrereq (but DZP::MinimumPerl failed)
 
-0.11     2010-05-07
+0.11     2010-05-07 (SHARYANTO)
          - Require Perl 5.10
 
-0.10     2010-05-06
+0.10     2010-05-06 (SHARYANTO)
          - Fixed: determining general level (again!)
          - Fixed: setting pattern
 
-0.09     2010-05-06
+0.09     2010-05-06 (SHARYANTO)
          - Fixed: Parsing -level should be done before other opts.
 
-0.08     2010-04-23
+0.08     2010-04-23 (SHARYANTO)
          - Add pattern_style.
 
-0.07     2010-04-16
+0.07     2010-04-16 (SHARYANTO)
          - Changed running init() in INIT phase instead of CHECK (to
            prevent it running when under -c).
 
-0.06     2010-04-09
+0.06     2010-04-09 (SHARYANTO)
          - Fixed wrong version (typo) in dependency
 
-0.05     2010-04-09
+0.05     2010-04-09 (SHARYANTO)
          - Require newer version of Log::Any & Log::Any::Adapter
          - Bug fix: did not DEBUG, TRACE, etc environment correctly
 
-0.04     2010-03-24
+0.04     2010-03-24 (SHARYANTO)
          - Don't log to file when testing.
 
-0.03     2010-03-24
+0.03     2010-03-24 (SHARYANTO)
          - Require File::Path >= 2.07 (for make_path)
 
-0.02     2010-03-19
+0.02     2010-03-19 (SHARYANTO)
          - Add -dump option.
          - default mode append for file.
          - Add debug statements (activated via LOGANYAPP_DEBUG=1) to
@@ -186,5 +195,5 @@ Revision history for Log-Any-App
          - Don't do screen colors unless in interactive terminal.
          - Bug fix: export '$log' in BEGIN, not CHECK phase.
 
-0.01     2010-03-17
+0.01     2010-03-17 (SHARYANTO)
          First release.

@@ -6,18 +6,12 @@ use 5.008;
 use strict;
 use warnings;
 
-use Data::Dumper;
-use File::HomeDir;
 use File::Path qw(make_path);
 use File::Spec;
 use Log::Any 0.11;
 use Log::Any::Adapter;
-use Log::Log4perl;
-# use Log::Dispatch::Dir
-# use Log::Dispatch::FileRotate
-# use Log::Dispatch::Syslog
 
-our $VERSION = '0.37'; # VERSION
+our $VERSION = '0.38'; # VERSION
 
 use vars qw($dbg_ctx);
 
@@ -61,7 +55,7 @@ sub init {
     $caller ||= caller();
 
     my $spec = _parse_opts($args, $caller);
-    _init_log4perl($spec) if $spec->{init};
+    _init_log4perl($spec) if $spec->{log} && $spec->{init};
     $spec;
 }
 
@@ -254,6 +248,8 @@ sub _gen_l4p_config {
 }
 
 sub _init_log4perl {
+    require Log::Log4perl;
+
     my ($spec) = @_;
 
     # create intermediate directories for dir
@@ -270,6 +266,7 @@ sub _init_log4perl {
 
     my $config_str = _gen_l4p_config($spec);
     if ($spec->{dump}) {
+        require Data::Dumper;
         print "Log::Any::App configuration:\n",
             Data::Dumper->new([$spec])->Terse(1)->Dump;
         print "Log4perl configuration: <<EOC\n", $config_str, "EOC\n";
@@ -313,18 +310,11 @@ sub _parse_args {
 }
 
 sub _parse_opts {
+    require File::HomeDir;
+
     my ($args, $caller) = @_;
     $args = _ifdef($args, []); # if we don't import(), we never get args
     _debug("parse_opts: args = [".join(", ", @$args)."]");
-
-    my $spec = {
-        name => _basename($0),
-        init => 1,
-        dump => ($ENV{LOGANYAPP_DEBUG} ? 1:0),
-        daemon => 0,
-        category_alias => _ifdefmj($ENV{LOG_CATEGORY_ALIAS}, {}),
-        level_flag_paths => [File::HomeDir->my_home, "/etc"],
-    };
 
     my $i = 0;
     my %opts;
@@ -338,11 +328,23 @@ sub _parse_opts {
         $i++;
     }
 
+    my $spec = {};
+
+    $spec->{log} = $ENV{LOG} // 1;
+    if (defined $opts{log}) {
+        $spec->{log} = $opts{log};
+        delete $opts{log};
+    }
+    # exit as early as possible if we are not doing any logging
+    goto END_PARSE_OPTS unless $spec->{log};
+
+    $spec->{name} = _basename($0);
     if (defined $opts{name}) {
         $spec->{name} = $opts{name};
         delete $opts{name};
     }
 
+    $spec->{level_flag_paths} = [File::HomeDir->my_home, "/etc"];
     if (defined $opts{level_flag_paths}) {
         $spec->{level_flag_paths} = $opts{level_flag_paths};
         delete $opts{level_flag_paths};
@@ -358,6 +360,7 @@ sub _parse_opts {
     }
     delete $opts{level};
 
+    $spec->{category_alias} = _ifdefmj($ENV{LOG_CATEGORY_ALIAS}, {});
     if (defined $opts{category_alias}) {
         die "category_alias must be a hashref"
             unless ref($opts{category_alias}) eq 'HASH';
@@ -376,17 +379,20 @@ sub _parse_opts {
         delete $opts{category_level};
     }
 
+    $spec->{init} = 1;
     if (defined $opts{init}) {
         $spec->{init} = $opts{init};
         delete $opts{init};
     }
 
+    $spec->{daemon} = 0;
     if (defined $opts{daemon}) {
         $spec->{daemon} = $opts{daemon};
         $is_daemon = $opts{daemon};
         delete $opts{daemon};
     }
 
+    $spec->{dump} = $ENV{LOGANYAPP_DEBUG};
     if (defined $opts{dump}) {
         $spec->{dump} = 1;
         delete $opts{dump};
@@ -410,10 +416,11 @@ sub _parse_opts {
 
     if (keys %opts) {
         die "Unknown option(s) ".join(", ", keys %opts)." Known opts are: ".
-            "name, level, category_level, category_alias, dump, init, ".
+            "log, name, level, category_level, category_alias, dump, init, ".
                 "file, dir, screen, syslog";
     }
 
+  END_PARSE_OPTS:
     #use Data::Dumper; print Dumper $spec;
     $spec;
 }
@@ -493,6 +500,8 @@ sub _set_pattern_style {
 }
 
 sub _default_file {
+    require File::HomeDir;
+
     my ($spec) = @_;
     my $level = _set_level("file", "file", $spec);
     if (!$level) {
@@ -542,6 +551,8 @@ sub _parse_opt_file {
 }
 
 sub _default_dir {
+    require File::HomeDir;
+
     my ($spec) = @_;
     my $level = _set_level("dir", "dir", $spec);
     if (!$level) {
@@ -882,7 +893,7 @@ Log::Any::App - An easy way to use Log::Any in applications
 
 =head1 VERSION
 
-version 0.37
+version 0.38
 
 =head1 SYNOPSIS
 
@@ -1216,6 +1227,34 @@ screen:
      -file   => "/var/log/foo",           # uses general -category_level
      -screen => { category_level => {} }; # overrides general -category_level
 
+You can also do this from the outside the script using environment variable,
+which is more flexible. Encode data structure using JSON:
+
+ % LOG_SHOW_CATEGORY=1 \
+   LOG_CATEGORY_ALIAS='{"-noisy":["Foo","Bar::Baz","Quz"]}' \
+   LOG_CATEGORY_LEVEL='{"-noisy":"off"}' script.pl ...
+
+=head2 Displaying category name
+
+ % LOG_SHOW_CATEGORY=1 script.pl ...
+
+Now instead of:
+
+ [25] Starting baz ritual ...
+
+now log messages will be prefixed with category:
+
+ [cat Foo.Bar][25] Starting baz ritual ...
+
+=head2 Displaying location name
+
+ % LOG_SHOW_LOCATION=1 script.pl ...
+
+Now log messages will be prefixed with location (function/file/line number)
+information:
+
+ [loc Foo::Bar lib/Foo/Bar.pm (12)][25] Starting baz ritual ...
+
 =head2 Preventing logging level to be changed from outside the script
 
 Sometimes, for security/audit reasons, you don't want to allow script caller to
@@ -1260,6 +1299,14 @@ in runtime phase, do this:
 Arguments to init can be one or more of:
 
 =over 4
+
+=item -log => BOOL
+
+Whether to do log at all. Default is from LOG environment variable, or 1. This
+option is only to allow users to disable Log::Any::App (thus speeding up startup
+by avoiding loading Log4perl, etc) by passing LOG=1 environment when running
+programs. However, if you explicitly set this option to 1, Log::Any::App cannot
+be disabled this way.
 
 =item -init => BOOL
 

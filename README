@@ -2,7 +2,7 @@ NAME
     Log::Any::App - An easy way to use Log::Any in applications
 
 VERSION
-    version 0.37
+    version 0.38
 
 SYNOPSIS
     Most of the time you only need to do this:
@@ -323,6 +323,32 @@ USING AND EXAMPLES
          -file   => "/var/log/foo",           # uses general -category_level
          -screen => { category_level => {} }; # overrides general -category_level
 
+    You can also do this from the outside the script using environment
+    variable, which is more flexible. Encode data structure using JSON:
+
+     % LOG_SHOW_CATEGORY=1 \
+       LOG_CATEGORY_ALIAS='{"-noisy":["Foo","Bar::Baz","Quz"]}' \
+       LOG_CATEGORY_LEVEL='{"-noisy":"off"}' script.pl ...
+
+  Displaying category name
+     % LOG_SHOW_CATEGORY=1 script.pl ...
+
+    Now instead of:
+
+     [25] Starting baz ritual ...
+
+    now log messages will be prefixed with category:
+
+     [cat Foo.Bar][25] Starting baz ritual ...
+
+  Displaying location name
+     % LOG_SHOW_LOCATION=1 script.pl ...
+
+    Now log messages will be prefixed with location (function/file/line
+    number) information:
+
+     [loc Foo::Bar lib/Foo/Bar.pm (12)][25] Starting baz ritual ...
+
   Preventing logging level to be changed from outside the script
     Sometimes, for security/audit reasons, you don't want to allow script
     caller to change logging level. As explained previously, you can use the
@@ -361,6 +387,14 @@ FUNCTIONS
      Log::Any::App::init(['a', 'b', 'c']);
 
     Arguments to init can be one or more of:
+
+    -log => BOOL
+        Whether to do log at all. Default is from LOG environment variable,
+        or 1. This option is only to allow users to disable Log::Any::App
+        (thus speeding up startup by avoiding loading Log4perl, etc) by
+        passing LOG=1 environment when running programs. However, if you
+        explicitly set this option to 1, Log::Any::App cannot be disabled
+        this way.
 
     -init => BOOL
         Whether to call Log::Log4perl->init() after setting up the Log4perl
