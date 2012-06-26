@@ -11,7 +11,7 @@ use File::Spec;
 use Log::Any 0.11;
 use Log::Any::Adapter;
 
-our $VERSION = '0.39'; # VERSION
+our $VERSION = '0.40'; # VERSION
 
 use vars qw($dbg_ctx);
 
@@ -894,7 +894,7 @@ Log::Any::App - An easy way to use Log::Any in applications
 
 =head1 VERSION
 
-version 0.39
+version 0.40
 
 =head1 SYNOPSIS
 

@@ -15,6 +15,7 @@ meta-spec:
   version: 1.4
 name: Log-Any-App
 requires:
+  File::HomeDir: 0
   File::Path: 2.07
   JSON: 0
   Log::Any::Adapter::Log4perl: 0
@@ -25,4 +26,4 @@ requires:
 resources:
   homepage: http://search.cpan.org/dist/Log-Any-App/
   repository: http://github.com/sharyanto/perl-Log-Any-App
-version: 0.39
+version: 0.40

@@ -18,12 +18,13 @@ my %module_build_args = (
     "Steven Haryanto <stevenharyanto\@gmail.com>"
   ],
   "dist_name" => "Log-Any-App",
-  "dist_version" => "0.39",
+  "dist_version" => "0.40",
   "license" => "perl",
   "module_name" => "Log::Any::App",
   "recommends" => {},
   "recursive_test_files" => 1,
   "requires" => {
+    "File::HomeDir" => 0,
     "File::Path" => "2.07",
     "JSON" => 0,
     "Log::Any::Adapter::Log4perl" => 0,
