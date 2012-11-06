@@ -18,7 +18,7 @@ my %module_build_args = (
     "Steven Haryanto <stevenharyanto\@gmail.com>"
   ],
   "dist_name" => "Log-Any-App",
-  "dist_version" => "0.40",
+  "dist_version" => "0.41",
   "license" => "perl",
   "module_name" => "Log::Any::App",
   "recommends" => {},
@@ -27,10 +27,13 @@ my %module_build_args = (
     "File::HomeDir" => 0,
     "File::Path" => "2.07",
     "JSON" => 0,
-    "Log::Any::Adapter::Log4perl" => 0,
-    "Log::Dispatch::Dir" => "0.08",
-    "Log::Dispatch::FileRotate" => 0,
-    "Log::Dispatch::Syslog" => 0,
+    "Log::Any" => "0.14",
+    "Log::Any::Adapter" => "0.07",
+    "Log::Any::Adapter::Log4perl" => "0.06",
+    "Log::Dispatch::Dir" => "0.10",
+    "Log::Dispatch::FileRotate" => "1.19",
+    "Log::Dispatch::Syslog" => "2.29",
+    "Log::Log4perl" => "1.36",
     "perl" => "5.008000"
   },
   "script_files" => []

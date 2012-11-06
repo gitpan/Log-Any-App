@@ -1,5 +1,10 @@
 Revision history for Log-Any-App
 
+0.41     2012-11-05 (SHARYANTO)
+
+         No functional changes. Add POD section 'Environment' and example.
+
+
 0.40     2012-06-26 (SHARYANTO)
 
          No functional changes. Add missing dependency to File::HomeDir [CT].

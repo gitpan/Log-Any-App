@@ -13,4 +13,5 @@ t/01-basics.t
 t/02-log-1.t
 t/release-pod-coverage.t
 t/release-pod-syntax.t
+t/release-rinci.t
 t/testlib.pl

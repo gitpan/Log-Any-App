@@ -11,7 +11,7 @@ use File::Spec;
 use Log::Any 0.11;
 use Log::Any::Adapter;
 
-our $VERSION = '0.40'; # VERSION
+our $VERSION = '0.41'; # VERSION
 
 use vars qw($dbg_ctx);
 
@@ -894,7 +894,7 @@ Log::Any::App - An easy way to use Log::Any in applications
 
 =head1 VERSION
 
-version 0.40
+version 0.41
 
 =head1 SYNOPSIS
 
@@ -1199,7 +1199,7 @@ example below is a code to log to three files:
                "/var/log/log1",
                {path=>"/var/log/debug_foo", category=>'Foo', level=>'debug'}];
 
-=head2 Changing level of a certain module
+=head2 Changing level of certain module(s)
 
 Suppose you want to shut up logs from modules Foo, Bar::Baz, and Qux (and their
 submodules as well, e.g. Foo::Alpha, Bar::Baz::Beta::Gamma) because they are too
@@ -1237,6 +1237,13 @@ which is more flexible. Encode data structure using JSON:
  % LOG_SHOW_CATEGORY=1 \
    LOG_CATEGORY_ALIAS='{"-noisy":["Foo","Bar::Baz","Quz"]}' \
    LOG_CATEGORY_LEVEL='{"-noisy":"off"}' script.pl ...
+
+=head2 Only displaying log from certain module(s)
+
+Use a combination of LOG_LEVEL and LOG_CATEGORY_LEVEL. For example:
+
+ % LOG_LEVEL=off LOG_CATEGORY_LEVEL='{"Foo.Bar":"trace", "Baz":"info"}' \
+   script.pl ...
 
 =head2 Displaying category name
 
@@ -1594,6 +1601,53 @@ picking default pattern style with location prefix using environment variable
 LOG_SHOW_LOCATION.
 
 If you have a favorite pattern style, please do share them.
+
+=head1 ENVIRONMENT
+
+Below is summary of environment variables used.
+
+Turning on/off logging:
+
+ LOG (bool)
+
+For setting general level:
+
+ TRACE (bool)       setting general level to trace
+ DEBUG (bool)       setting general level to debug
+ VERBOSE (bool)     setting general level to info
+ QUIET (bool)       setting general level to error (turn off warnings)
+ LOG_LEVEL (str)
+
+Setting per-output level:
+
+ FILE_TRACE, FILE_DEBUG, FILE_VERBOSE, FILE_QUIET, FILE_LOG_LEVEL
+ SCREEN_TRACE and so on
+ DIR_TRACE and so on
+ SYSLOG_TRACE and so on
+
+Setting per-category level:
+
+ LOG_CATEGORY_LEVEL (hash, json)
+ LOG_CATEGORY_ALIAS (hash, json)
+
+Setting per-output, per-category level:
+
+ FILE_LOG_CATEGORY_LEVEL
+ SCREEN_LOG_CATEGORY_LEVEL
+ and so on
+
+Controlling extra fields to log:
+
+ LOG_SHOW_LOCATION
+ LOG_SHOW_CATEGORY
+
+Force-enable or disable color:
+
+ COLOR (bool)
+
+Turn on Log::Any::App's debugging:
+
+ LOGANYAPP_DEBUG (bool)
 
 =head1 FAQ
 
