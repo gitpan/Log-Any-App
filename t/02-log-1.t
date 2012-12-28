@@ -1,4 +1,4 @@
-#!perl -T
+#!perl
 
 # test actual generated logs: mixing per-output level and per-category level,
 # category alias

@@ -1,4 +1,4 @@
-#!perl -T
+#!perl
 
 # check defaults
 
