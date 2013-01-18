@@ -1,5 +1,13 @@
 Revision history for Log-Any-App
 
+0.43     2013-01-18 (SHARYANTO)
+
+         [ENHANCEMENTS]
+
+         - By default do not show elapsed time in screen, turn on using
+           LOG_ELAPSED_TIME_IN_SCREEN=1
+
+
 0.42     2012-12-28 (SHARYANTO)
 
          No functional changes. Increment version number to eclipse

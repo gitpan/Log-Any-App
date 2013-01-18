@@ -18,7 +18,7 @@ my %module_build_args = (
     "Steven Haryanto <stevenharyanto\@gmail.com>"
   ],
   "dist_name" => "Log-Any-App",
-  "dist_version" => "0.42",
+  "dist_version" => "0.43",
   "license" => "perl",
   "module_name" => "Log::Any::App",
   "recommends" => {},
