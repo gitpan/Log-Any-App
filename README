@@ -2,7 +2,8 @@ NAME
     Log::Any::App - An easy way to use Log::Any in applications
 
 VERSION
-    version 0.43
+    This document describes version 0.45 of Log::Any::App (from Perl
+    distribution Log-Any-App), released on 2014-06-03.
 
 SYNOPSIS
     Most of the time you only need to do this:
@@ -125,7 +126,7 @@ USING AND EXAMPLES
 
      use Log::Any::App '$log', -level => 'debug';
 
-    This is useful if you want a fixed level that cannot be overriden by
+    This is useful if you want a fixed level that cannot be overridden by
     other mechanisms (since setting level using import argument has the
     highest priority). But oftentimes what you want is changing level
     without modifying the script itself. Thereby, just write:
@@ -194,7 +195,7 @@ USING AND EXAMPLES
          # and so on
      }
 
-    If a per-output level is not specifed, it will default to the general
+    If a per-output level is not specified, it will default to the general
     log level.
 
   Enabling/disabling output
@@ -206,8 +207,8 @@ USING AND EXAMPLES
 
      use Log::Any::App '$log', -screen => {level=>'off'};
 
-    and this won't allow the output to be reenabled from outside the script.
-    However if you do this:
+    and this won't allow the output to be re-enabled from outside the
+    script. However if you do this:
 
      use Log::Any::App;
      BEGIN { our $Screen_Log_Level = 'off' }
@@ -486,9 +487,33 @@ FUNCTIONS
 
         If everything fails, it defaults to 'warn'.
 
+    -filter_text => STR
+        Only show log lines matching STR. Default from "LOG_FILTER_TEXT"
+        environment.
+
+    -filter_no_text => STR
+        Only show log lines not matching STR. Default from
+        "LOG_FILTER_NO_TEXT" environment.
+
+    -filter_citext => STR
+        Only show log lines matching STR (case insensitive). Default from
+        "LOG_FILTER_CITEXT" environment.
+
+    -filter_no_citext => STR
+        Only show log lines not matching STR (case insensitive). Default
+        from "LOG_FILTER_NO_CITEXT" environment.
+
+    -filter_re => RE
+        Only show log lines matching regex pattern RE. Default from
+        "LOG_FILTER_RE" environment.
+
+    -filter_no_re => RE
+        Only show log lines not matching regex pattern RE. Default from
+        "LOG_FILTER_NO_RE" environment.
+
     -file => 0 | 1|yes|true | PATH | {opts} | [{opts}, ...]
         Specify output to one or more files, using
-        Log::Dispatch::FileRotate.
+        Log::Dispatch::FileWriteRotate.
 
         If the argument is a false boolean value, file logging will be
         turned off. If argument is a true value that matches
@@ -498,12 +523,15 @@ FUNCTIONS
         hashref must be one of: "level", "path", "max_size" (maximum size
         before rotating, in bytes, 0 means unlimited or never rotate),
         "histories" (number of old files to keep, excluding the current
-        file), "date_pattern" (will be passed to DatePattern argument in
-        FileRotate's constructor), "tz" (will be passed to TZ argument in
-        FileRotate's constructor), "category" (a string of ref to array of
-        strings), "category_level" (a hashref, similar to -category_level),
-        "pattern_style" (see "PATTERN STYLES"), "pattern" (Log4perl
-        pattern).
+        file), "suffix" (will be passed to Log::Dispatch::FileWriteRotate's
+        constructor), "period" (will be passed to
+        Log::Dispatch::FileWriteRotate's constructor), "buffer_size" (will
+        be passed to Log::Dispatch::FileWriteRotate's constructor),
+        "category" (a string of ref to array of strings), "category_level"
+        (a hashref, similar to -category_level), "pattern_style" (see
+        "PATTERN STYLES"), "pattern" (Log4perl pattern), "filter_text",
+        "filter_no_text", "filter_citext", "filter_no_citext", "filter_re",
+        "filter_no_re".
 
         If the argument is an arrayref, it is assumed to be specifying
         multiple files, with each element of the array as a hashref.
@@ -549,7 +577,9 @@ FUNCTIONS
         "histories" (number of old files to keep, excluding the current
         file), "category", "category_level" (a hashref, similar to
         -category_level), "pattern_style" (see "PATTERN STYLES"), "pattern"
-        (Log4perl pattern), "filename_pattern" (pattern of file name).
+        (Log4perl pattern), "filename_pattern" (pattern of file name),
+        "filter_text", "filter_no_text", "filter_citext",
+        "filter_no_citext", "filter_re", "filter_no_re".
 
         If the argument is an arrayref, it is assumed to be specifying
         multiple directories, with each element of the array as a hashref.
@@ -587,7 +617,9 @@ FUNCTIONS
         color), "stderr" (default is true, set to 0 to log to stdout
         instead), "level", "category", "category_level" (a hashref, similar
         to -category_level), "pattern_style" (see "PATTERN STYLE"),
-        "pattern" (Log4perl string pattern).
+        "pattern" (Log4perl string pattern), "filter_text",
+        "filter_no_text", "filter_citext", "filter_no_citext", "filter_re",
+        "filter_no_re".
 
         How Log::Any::App determines defaults for screen logging:
 
@@ -615,7 +647,8 @@ FUNCTIONS
         the hashref must be one of: "level", "ident", "facility",
         "category", "category_level" (a hashref, similar to
         -category_level), "pattern_style" (see "PATTERN STYLES"), "pattern"
-        (Log4perl pattern).
+        (Log4perl pattern), "filter_text", "filter_no_text",
+        "filter_citext", "filter_no_citext", "filter_re", "filter_no_re".
 
         How Log::Any::App determines defaults for syslog logging:
 
@@ -707,52 +740,66 @@ PATTERN STYLES
 ENVIRONMENT
     Below is summary of environment variables used.
 
-    Turning on/off logging:
-
+  Turning on/off logging
      LOG (bool)
 
-    For setting general level:
-
+  Setting general level
      TRACE (bool)       setting general level to trace
      DEBUG (bool)       setting general level to debug
      VERBOSE (bool)     setting general level to info
      QUIET (bool)       setting general level to error (turn off warnings)
      LOG_LEVEL (str)
 
-    Setting per-output level:
-
+  Setting per-output level
      FILE_TRACE, FILE_DEBUG, FILE_VERBOSE, FILE_QUIET, FILE_LOG_LEVEL
      SCREEN_TRACE and so on
      DIR_TRACE and so on
      SYSLOG_TRACE and so on
 
-    Setting per-category level:
-
+  Setting per-category level
      LOG_CATEGORY_LEVEL (hash, json)
      LOG_CATEGORY_ALIAS (hash, json)
 
-    Setting per-output, per-category level:
-
+  Setting per-output, per-category level
      FILE_LOG_CATEGORY_LEVEL
      SCREEN_LOG_CATEGORY_LEVEL
      and so on
 
-    Controlling extra fields to log:
-
+  Controlling extra fields to log
      LOG_SHOW_LOCATION
      LOG_SHOW_CATEGORY
 
-    Force-enable or disable color:
-
+  Force-enable or disable color
      COLOR (bool)
 
-    Turn on Log::Any::App's debugging:
-
+  Turn on Log::Any::App's debugging
      LOGANYAPP_DEBUG (bool)
 
-    Turn on showing elapsed time in screen:
-
+  Turn on showing elapsed time in screen
      LOG_ELAPSED_TIME_IN_SCREEN (bool)
+
+  Filtering
+     LOG_FILTER_TEXT (str)
+     LOG_FILTER_NO_TEXT (str)
+     LOG_FILTER_CITEXT (str)
+     LOG_FILTER_NO_CITEXT (str)
+     LOG_FILTER_RE (str)
+     LOG_FILTER_NO_RE (str)
+
+  Per-output filtering
+     {FILE,DIR,SCREEN,SYSLOG}_LOG_FILTER_TEXT (str)
+     and so on
+
+  Extra things to log
+    *   LOG_ENV (bool)
+
+        If set to 1, will dump environment variables at the start of
+        program. Useful for debugging e.g. CGI or git hook scripts. You
+        might also want to look at
+        Log::Any::Adapter::Core::Patch::UseDataDump to make the dump more
+        readable.
+
+        Logging will be done under category "main" and at level "trace".
 
 FAQ
   Why?
@@ -826,7 +873,7 @@ ROAD TO 1.0
         *every* init() options configurable from outside the script
         (environment/command-line/control file). Of course, init() arguments
         still take precedence for authors that do not want some/all options
-        to be overriden from outside.
+        to be overridden from outside.
 
     *   Reorganization of command-line/environment names
 
@@ -881,11 +928,25 @@ SEE ALSO
     Log::Dispatch), Log::Fast, Log::Log4perl::Tiny. Really, there are 7,451
     of them (roughly one third of CPAN) at the time of this writing.
 
+HOMEPAGE
+    Please visit the project's homepage at
+    <https://metacpan.org/release/Log-Any-App>.
+
+SOURCE
+    Source repository is at <https://github.com/sharyanto/perl-Log-Any-App>.
+
+BUGS
+    Please report any bugs or feature requests on the bugtracker website
+    <https://rt.cpan.org/Public/Dist/Display.html?Name=Log-Any-App>
+
+    When submitting a bug or request, please include a test-file or a patch
+    to an existing test-file that illustrates the bug or desired feature.
+
 AUTHOR
     Steven Haryanto <stevenharyanto@gmail.com>
 
 COPYRIGHT AND LICENSE
-    This software is copyright (c) 2013 by Steven Haryanto.
+    This software is copyright (c) 2014 by Steven Haryanto.
 
     This is free software; you can redistribute it and/or modify it under
     the same terms as the Perl 5 programming language system itself.

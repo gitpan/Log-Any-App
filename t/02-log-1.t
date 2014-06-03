@@ -11,7 +11,7 @@ BEGIN {
 use strict;
 use warnings;
 
-use File::Slurp;
+use File::Slurp::Tiny qw(read_file);
 use File::Temp qw/tempfile tempdir/;
 my ($f0path, $f1path);
 BEGIN {

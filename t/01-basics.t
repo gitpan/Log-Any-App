@@ -9,7 +9,7 @@ use strict;
 use warnings;
 
 use Log::Any::App -dir => 0, -file => 0, -screen => 0, -syslog => 0, -init => 0;
-use File::Slurp;
+use File::Slurp::Tiny qw(write_file);
 use File::Temp qw(tempdir);
 use Test::More;
 
@@ -232,5 +232,7 @@ test_init(
 # XXX test LOG_SHOW_CATEGORY
 # XXX test LOG_CATEGORY_ALIAS & LOG_CATEGORY_LEVEL & ${OUT}_LOG_CATEGORY_LEVEL
 # XXX test LOG_SHOW_LOCATION
+
+# XXX test LOG_ENV
 
 done_testing();
