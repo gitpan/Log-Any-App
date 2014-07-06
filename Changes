@@ -1,5 +1,12 @@
 Revision history for Log-Any-App
 
+0.46     2014-07-06 (SHARYANTO)
+
+         - Add output type: unixsock.
+
+         - Add output type: array.
+
+
 0.45     2014-06-03 (SHARYANTO)
 
          - No functional changes.
