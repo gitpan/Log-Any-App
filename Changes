@@ -1,5 +1,13 @@
 Revision history for Log-Any-App
 
+0.47    2014-12-05 (PERLANCAR)
+
+	- No functional changes.
+
+	- Use new name of renamed module SHARYANTO::IO::Socket::UNIX::Util
+	  -> IO::Socket::UNIX::Util.
+
+
 0.46     2014-07-06 (SHARYANTO)
 
          - Add output type: unixsock.

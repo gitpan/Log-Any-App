@@ -2,8 +2,8 @@ NAME
     Log::Any::App - An easy way to use Log::Any in applications
 
 VERSION
-    This document describes version 0.46 of Log::Any::App (from Perl
-    distribution Log-Any-App), released on 2014-07-06.
+    This document describes version 0.47 of Log::Any::App (from Perl
+    distribution Log-Any-App), released on 2014-12-05.
 
 SYNOPSIS
     Most of the time you only need to do this:
@@ -729,15 +729,14 @@ FUNCTIONS
 
          -array => [{output1}, ...]
 
-        If the argument is a false boolean value, Unix domain socket logging
-        will be turned off. Otherwise argument must be a hashref or an
-        arrayref (to specify multiple outputs). If the argument is a
-        hashref, then the keys of the hashref must be one of: "level",
-        "array" (defaults to new anonymous array []), "filter_text",
-        "filter_no_text", "filter_citext", "filter_no_citext", "filter_re",
-        "filter_no_re". If the argument is an arrayref, it is assumed to be
-        specifying multiple sockets, with each element of the array as a
-        hashref.
+        If the argument is a false boolean value, array logging will be
+        turned off. Otherwise argument must be a hashref or an arrayref (to
+        specify multiple outputs). If the argument is a hashref, then the
+        keys of the hashref must be one of: "level", "array" (defaults to
+        new anonymous array []), "filter_text", "filter_no_text",
+        "filter_citext", "filter_no_citext", "filter_re", "filter_no_re". If
+        the argument is an arrayref, it is assumed to be specifying multiple
+        sockets, with each element of the array as a hashref.
 
         How Log::Any::App determines defaults for array logging:
 
@@ -951,15 +950,17 @@ FAQ
 
   What is array output for?
     Logging to a Perl array might be useful for testing/debugging, or (one
-    use-case I can think of) for letting users of your program
-    connect/request your program to view the logs being produced. For
+    use-case I can think of) for letting users of your program connect to
+    your program directly to request viewing the logs being produced
+    (although logging to other outputs doesn't preclude this ability). For
     example, here is a program that uses a separate thread to listen to Unix
-    socket. Requires perl built with threads enabled.
+    socket for requests to view the (last 100) logs. Requires perl built
+    with threads enabled.
 
      use threads;
      use threads::shared;
      BEGIN { our @buf :shared }
-     use SHARYANTO::IO::Socket::UNIX::Util qw(create_unix_stream_socket);
+     use IO::Socket::UNIX::Util qw(create_unix_stream_socket);
      use Log::Any::App '$log', -array => [{array => 'main::buf', max_elems=>100}];
 
      my $sock = create_unix_stream_socket('/tmp/app-logview.sock');
@@ -1073,7 +1074,7 @@ HOMEPAGE
     <https://metacpan.org/release/Log-Any-App>.
 
 SOURCE
-    Source repository is at <https://github.com/sharyanto/perl-Log-Any-App>.
+    Source repository is at <https://github.com/perlancar/perl-Log-Any-App>.
 
 BUGS
     Please report any bugs or feature requests on the bugtracker website
@@ -1083,10 +1084,10 @@ BUGS
     to an existing test-file that illustrates the bug or desired feature.
 
 AUTHOR
-    Steven Haryanto <stevenharyanto@gmail.com>
+    perlancar <perlancar@cpan.org>
 
 COPYRIGHT AND LICENSE
-    This software is copyright (c) 2014 by Steven Haryanto.
+    This software is copyright (c) 2014 by perlancar@cpan.org.
 
     This is free software; you can redistribute it and/or modify it under
     the same terms as the Perl 5 programming language system itself.
